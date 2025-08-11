@@ -1,3 +1,5 @@
+// API Service for Bright Smile AI
+// HARDCODED API KEY: 'bright-smile-agent-key' (for development purposes)
 import {
   Lead,
   Message,
@@ -15,6 +17,7 @@ import {
 } from '@/types';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
+const AGENT_API_KEY = 'bright-smile-agent-key'; // Hardcoded for development
 
 class ApiService {
   private async request<T>(
@@ -128,7 +131,7 @@ class ApiService {
     return this.request<OutreachResponse>('/agents/trigger-outreach', {
       method: 'POST',
       headers: {
-        'X-API-Key': 'bright-smile-agent-key'
+        'X-API-Key': AGENT_API_KEY
       }
     });
   }
@@ -137,7 +140,7 @@ class ApiService {
     return this.request<RiskAnalysisResponse>('/agents/analyze-risk', {
       method: 'POST',
       headers: {
-        'X-API-Key': 'bright-smile-agent-key'
+        'X-API-Key': AGENT_API_KEY
       }
     });
   }
@@ -150,7 +153,7 @@ class ApiService {
     return this.request<Message>('/agents/test-instant-reply', {
       method: 'POST',
       headers: {
-        'X-API-Key': 'bright-smile-agent-key'
+        'X-API-Key': AGENT_API_KEY
       },
       body: JSON.stringify({ lead_id: leadId, message }),
     });

@@ -54,7 +54,20 @@ export function LeadManagement({ onLeadSelect }: LeadManagementProps) {
     try {
       setLoading(true);
       const data = await apiService.getLeads();
-      setLeads(data);
+      console.log('API response data:', data);
+      // Validate that each lead has required fields
+      const validatedData = data.map(lead => {
+        if (!lead.status) {
+          console.warn(`Lead ${lead.id} missing status field:`, lead);
+          return { ...lead, status: 'new' as Lead['status'] };
+        }
+        if (!lead.risk_level) {
+          console.warn(`Lead ${lead.id} missing risk_level field:`, lead);
+          return { ...lead, risk_level: 'medium' as Lead['risk_level'] };
+        }
+        return lead;
+      });
+      setLeads(validatedData);
     } catch (error) {
       console.error('Failed to fetch leads:', error);
       toast.error('Failed to load leads');
@@ -130,10 +143,21 @@ export function LeadManagement({ onLeadSelect }: LeadManagementProps) {
       active: { label: 'Active', variant: 'default', className: 'bg-green-100 text-green-800' },
       at_risk: { label: 'At Risk', variant: 'default', className: 'bg-yellow-100 text-yellow-800' },
       cold: { label: 'Cold', variant: 'default', className: 'bg-gray-100 text-gray-800' },
+      contacted: { label: 'Contacted', variant: 'default', className: 'bg-indigo-100 text-indigo-800' },
       human_handoff: { label: 'Human Handoff', variant: 'default', className: 'bg-purple-100 text-purple-800' },
       converted: { label: 'Converted', variant: 'default', className: 'bg-emerald-100 text-emerald-800' },
       do_not_contact: { label: 'Do Not Contact', variant: 'default', className: 'bg-red-100 text-red-800' },
     };
+
+    // Add defensive programming to handle undefined or invalid status
+    if (!status || !statusConfig[status]) {
+      console.warn(`Invalid or undefined status: ${status}`);
+      return (
+        <Badge className="bg-gray-100 text-gray-800">
+          Unknown
+        </Badge>
+      );
+    }
 
     const config = statusConfig[status];
     return (
@@ -149,6 +173,16 @@ export function LeadManagement({ onLeadSelect }: LeadManagementProps) {
       medium: { label: 'Medium', className: 'bg-yellow-100 text-yellow-800' },
       high: { label: 'High', className: 'bg-red-100 text-red-800' },
     };
+
+    // Add defensive programming to handle undefined or invalid risk level
+    if (!riskLevel || !riskConfig[riskLevel]) {
+      console.warn(`Invalid or undefined risk level: ${riskLevel}`);
+      return (
+        <Badge className="bg-gray-100 text-gray-800">
+          Unknown
+        </Badge>
+      );
+    }
 
     const config = riskConfig[riskLevel];
     return (
@@ -234,6 +268,7 @@ export function LeadManagement({ onLeadSelect }: LeadManagementProps) {
                 <SelectItem value="active">Active</SelectItem>
                 <SelectItem value="at_risk">At Risk</SelectItem>
                 <SelectItem value="cold">Cold</SelectItem>
+                <SelectItem value="contacted">Contacted</SelectItem>
                 <SelectItem value="human_handoff">Human Handoff</SelectItem>
                 <SelectItem value="converted">Converted</SelectItem>
                 <SelectItem value="do_not_contact">Do Not Contact</SelectItem>
@@ -326,6 +361,7 @@ export function LeadManagement({ onLeadSelect }: LeadManagementProps) {
                             <SelectItem value="active">Active</SelectItem>
                             <SelectItem value="at_risk">At Risk</SelectItem>
                             <SelectItem value="cold">Cold</SelectItem>
+                            <SelectItem value="contacted">Contacted</SelectItem>
                             <SelectItem value="human_handoff">Human Handoff</SelectItem>
                             <SelectItem value="converted">Converted</SelectItem>
                             <SelectItem value="do_not_contact">Do Not Contact</SelectItem>

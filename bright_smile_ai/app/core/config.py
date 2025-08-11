@@ -57,6 +57,9 @@ class Settings(BaseSettings):
     twilio_account_sid: Optional[str] = Field(default=None, env="TWILIO_ACCOUNT_SID")
     twilio_auth_token: Optional[str] = Field(default=None, env="TWILIO_AUTH_TOKEN")
     
+    # Agent API Key (hardcoded for now)
+    agent_api_key: str = Field(default="bright-smile-agent-key", env="AGENT_API_KEY")
+    
     class Config:
         env_file = ".env"
         case_sensitive = False

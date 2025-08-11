@@ -4,7 +4,7 @@ export interface Lead {
   email: string;
   phone: string;
   initial_inquiry: string;
-  status: 'new' | 'active' | 'at_risk' | 'cold' | 'human_handoff' | 'converted' | 'do_not_contact';
+  status: 'new' | 'active' | 'at_risk' | 'cold' | 'contacted' | 'human_handoff' | 'converted' | 'do_not_contact';
   risk_level: 'low' | 'medium' | 'high';
   sentiment_score: number;
   reason_for_cold?: string;
@@ -94,6 +94,7 @@ export interface LeadFunnel {
     active: number;
     at_risk: number;
     cold: number;
+    contacted: number;
     human_handoff: number;
     converted: number;
     do_not_contact: number;

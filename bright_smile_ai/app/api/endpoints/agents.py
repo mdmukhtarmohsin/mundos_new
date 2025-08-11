@@ -18,6 +18,7 @@ def verify_api_key(x_api_key: str = Header(...)) -> bool:
     """Verify API key for agent endpoints (security for manual triggers)"""
     # In production, this would be a proper API key validation
     # For now, we'll use a simple check against settings
+    # HARDCODED API KEY: "bright-smile-agent-key" (can be overridden with AGENT_API_KEY env var)
     expected_key = getattr(settings, 'agent_api_key', 'bright-smile-agent-key')
     if x_api_key != expected_key:
         raise HTTPException(status_code=401, detail="Invalid API key")
