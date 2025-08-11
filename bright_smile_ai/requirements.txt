@@ -1,0 +1,42 @@
+# AI Patient Advocate - Requirements
+# Core FastAPI and web framework
+fastapi[all]==0.116.1
+uvicorn[standard]==0.35.0
+python-multipart==0.0.20
+
+# Database
+sqlalchemy==2.0.42
+alembic==1.16.4
+psycopg2-binary==2.9.10
+
+# AI and LangChain
+langchain==0.3.27
+langchain-core==0.3.74
+langchain-openai==0.3.29
+langgraph==0.6.4
+langgraph-checkpoint==2.1.1
+openai==1.99.6
+
+# Data validation and configuration
+pydantic==2.11.7
+pydantic-settings==2.10.1
+python-dotenv==1.1.1
+
+# Background processing
+apscheduler==3.11.0
+
+# Utilities
+jinja2==3.1.6
+vaderSentiment==3.3.2
+reportlab==4.4.3
+faker==37.5.3
+
+# HTTP client
+httpx==0.28.1
+requests==2.32.4
+
+# Development dependencies (optional)
+pytest==8.3.4
+pytest-asyncio==0.24.0
+black==24.10.0
+flake8==7.1.1

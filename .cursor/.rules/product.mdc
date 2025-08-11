@@ -1,0 +1,315 @@
+---
+description: understand product requiremnts , understand workflow, undesrtand motive
+alwaysApply: false
+
+---
+
+## **Document 1: Product Requirements Document (PRD) - The AI Patient Advocate**
+
+*   **Project:** Bright Smile Clinic - AI Patient Advocate
+*   **Version:** 7.0 (Final Comprehensive Edition)
+*   **Status:** Final, Approved for Development
+*   **Audience:** Stakeholders, Product Management, Lead Developers, Architects
+
+### **1. Introduction & Vision**
+
+This document outlines the requirements for the "AI Patient Advocate," a sophisticated backend system designed for Bright Smile Clinic. The current operational model suffers from significant lead leakage (~30% of inquiries), resulting in substantial revenue loss and a fragmented patient experience.
+
+**Our vision is to transform the lead engagement process from a reactive, manual follow-up system into a proactive, automated concierge service.** This AI Patient Advocate will not just manage leads; it will captivate them by providing overwhelming, personalized value at every step of their journey. The system will build trust, reduce patient anxiety, and make choosing Bright Smile Clinic the easiest and most logical decision.
+
+### **2. System Architecture & Logical Flow**
+
+The system is architected around two distinct but interconnected AI agent workflows, supported by a unified backend infrastructure. This design decision ensures separation of concerns: proactive outreach is handled differently from reactive, real-time responses.
+
+#### **2.1. Overall System Diagram**
+
+```
++----------------+      +------------------+      +-------------------+
+|   API Layer    |<---->| Services Layer   |<---->|  PostgreSQL DB    |
+|   (FastAPI)    |      | (Business Logic) |      | (Single Source of Truth) |
++----------------+      +------------------+      +-------------------+
+        ^                       |
+        |                       |  Orchestrates...
+        |                       v
++----------------------------------------------------------------------+
+|                           AI CORE (LangGraph)                          |
+|                                                                        |
+|  +---------------------------+    +---------------------------------+  |
+|  |  Proactive Outreach Agent |    |    Instant Reply Agent          |  |
+|  |  (The "Marketer")         |    |    (The "Patient Concierge")    |  |
+|  +---------------------------+    +---------------------------------+  |
+|  | - Manually Triggered      |    | - Triggered by Incoming Message |  |
+|  | - Runs Once Daily (Batch) |    | - Real-time, Stateful          |  |
+|  | - Qualifies Cold Leads    |    | - Answers Queries              |  |
+|  | - Deploys Recall Plays    |    | - Offers & Generates Assets    |  |
+|  | - Uses Offers/Testimonials|    | - Handles Human Handoff        |  |
+|  +---------------------------+    +---------------------------------+  |
++----------------------------------------------------------------------+
+```
+
+#### **2.2. The Proactive Outreach Agent Flow (The "Marketer")**
+
+This agent's mission is to intelligently re-engage leads who have gone cold. It is designed as a batch process to ensure it runs methodically and does not interfere with real-time conversations.
+
+1.  **Manual Trigger:** A clinic marketer triggers this agent via a secure API endpoint (e.g., `POST /agents/trigger-outreach`). This is a deliberate design choice for the MVP to give the clinic full control over when proactive outreach occurs.
+2.  **Lead Identification:** The agent queries the database for all leads with `status = 'cold'`.
+3.  **Qualification Gauntlet (Per Lead):** For each cold lead, it performs a series of checks. If any check fails, the lead is skipped, and the reason is logged.
+    *   **Decision:** Is `do_not_contact` flag set? -> **Skip.**
+    *   **Decision:** Was the last message from a `human` staff member? -> **Skip** (to avoid stepping on a manual conversation).
+    *   **Decision:** Has it been less than a "cool-down" period (e.g., 14 days) since they went cold? -> **Skip** (to avoid appearing desperate).
+4.  **Strategy Selection:** If a lead qualifies, the agent gathers context (initial inquiry, time elapsed) and selects a "play" from its playbook.
+    *   **Decision:** Cold for 14-30 days? -> Use "Gentle Nudge" play.
+    *   **Decision:** Cold for > 30 days & inquired about a specific service? -> Use "Social Proof" play (fetch a relevant testimonial).
+    *   **Decision:** Cold for > 45 days? -> Use "Incentive" play (fetch an active, relevant offer).
+5.  **Message Generation & Action:** The agent uses an LLM to generate a personalized message based on the selected play and context. It then saves this message to the database and updates the lead's status from `cold` to `contacted`.
+
+#### **2.3. The Instant Reply Agent Flow (The "Patient Concierge")**
+
+This agent's mission is to provide immediate, helpful, and valuable responses to active conversations. It is the core of the patient experience.
+
+1.  **API Trigger:** An incoming message from a lead via `POST /messages` instantly invokes this agent.
+2.  **Stateful Context Loading:** The agent loads the full conversation history for the lead, establishing context.
+3.  **Intent Classification:** The agent's first decision is to understand the user's intent from their latest message.
+    *   **Is it a question about price?**
+    *   **Is it a request to book an appointment?**
+    *   **Is it a request to speak to a human?**
+    *   **Is it a general question about a service?**
+4.  **Value-Driven Routing:** Based on the intent, the agent routes to a specific tool or response generator.
+    *   **Price Inquiry:** The agent doesn't just give a number. It triggers the **"Offer Financial Explainer"** flow. This is a key architectural decision to prioritize value over simple answers.
+    *   **Booking Request / Human Handoff:** The agent immediately flags the lead for `Human Handoff`, sends a message confirming this ("Great, let me get one of our patient coordinators to finalize that for you."), and notifies staff.
+    *   **General Question:** The agent formulates an answer, potentially augmenting it with a relevant testimonial from the database as social proof.
+5.  **Response & State Update:** The generated response is saved to the database, and the lead's `last_contact_at` timestamp is updated. The agent then awaits the next message, maintaining the state.
+
+### **3. Goals & Success Metrics**
+
+The primary goal is to validate that a proactive, value-driven AI system can significantly reduce lead drop-off and increase high-value conversions.
+
+| Goal Category | Key Performance Indicator (KPI) | Success Target (First Quarter) |
+| :--- | :--- | :--- |
+| **Lead Conversion** | Decrease the percentage of leads entering "Cold" status | 30% reduction |
+| | Increase conversion rate of leads who discuss pricing | 25% increase |
+| **Revenue Impact** | Total revenue recovered from previously "at-risk" or "cold" leads | Tracked in real-time on dashboard |
+| **Patient Experience** | Engagement rate with high-value assets (Financial Explainers) | > 50% of offered assets are viewed |
+| | Average time-to-first-response for all new inquiries | < 60 seconds |
+| **Operational Efficiency**| Reduction in staff time spent on manual lead follow-up | Qualitative feedback target of 5-8 hours/week saved |
+
+### **4. User Personas**
+
+| Persona | Description | Needs & Goals |
+| :--- | :--- | :--- |
+| **The Marketer** (Clinic Staff) | Manages patient leads, responsible for clinic growth. | Needs an automated system that intelligently nurtures leads, surfaces high-intent individuals, provides context for conversations, and frees up their time for complex cases. |
+| **The Patient** (New/Existing) | Individuals seeking dental services, often with anxieties about cost, pain, and outcomes. | Needs prompt, clear, and empathetic communication. Values transparency (especially on pricing) and tools that help them make confident decisions. |
+
+### **5. Functional Requirements**
+
+#### **5.1. Lead Lifecycle & Risk Management**
+*   **FR-1.1:** The system shall track leads through a defined lifecycle of statuses: `New`, `Active`, `At-Risk`, `Cold`, `Human Handoff`, `Converted`, `Do Not Contact`.
+*   **FR-1.2 (Predictive Intervention):** The system shall run a periodic background analysis of all `Active` leads.
+*   **FR-1.3:** The analysis must identify leads as `At-Risk` based on a set of triggers, including: a significant negative shift in conversation sentiment, a sudden drop in response pace, or prolonged silence after a discussion about price.
+*   **FR-1.4:** Upon identifying an `At-Risk` lead, the system shall automatically trigger a targeted, context-aware intervention message from the AI.
+
+#### **5.2. AI Conversation & Engagement**
+*   **FR-2.1 (Instant Reply Agent):** The system shall provide an instantaneous response to all new incoming lead messages. This agent is stateful and manages the active conversation flow.
+*   **FR-2.2 (Proactive Outreach Agent):** The system shall provide a mechanism for a marketer to manually trigger a batch outreach campaign to all leads with `status = 'cold'`.
+*   **FR-2.3:** The AI must understand user intent, including general questions, inquiries about price, requests to book, and requests for human intervention.
+*   **FR-2.4 (Human Handoff):** The system must provide a seamless handoff mechanism, changing the lead's status to `Human Handoff` and notifying staff when a user requests to speak with a person.
+*   **FR-2.5 (Demonstration Capability):** The system must allow an administrator to send messages *as the lead* to demonstrate the AI's real-time responsiveness. It must also allow messages to be sent *as a human staff member*, bypassing the AI.
+
+#### **5.3. Asset Generation**
+*   **FR-3.1 (Dynamic Financial Explainer):** The system shall have the capability to generate a personalized financial breakdown for a lead upon request.
+*   **FR-3.2:** This asset must be delivered as a secure, unique link to a webpage or PDF.
+*   **FR-3.3:** The content of the explainer must include the procedure's total cost, an estimated insurance contribution (if provided), the final out-of-pocket cost, and multiple monthly payment plan examples.
+*   **FR-3.4:** The AI must be able to intelligently offer this asset during a conversation, particularly when the topic of cost arises.
+
+#### **5.4. Dashboard & Reporting**
+*   **FR-4.1:** The system must provide a dashboard for staff with real-time visibility into key metrics.
+*   **FR-4.2:** The dashboard shall display primary KPIs, including: Leads Converted, Revenue Recovered, and At-Risk Save Rate.
+*   **FR-4.3:** The dashboard shall feature a visual funnel showing the number of leads in each status (`New`, `Active`, `At-Risk`, `Cold`, `Converted`).
+*   **FR-4.4:** The dashboard shall include a report on the performance of different AI outreach strategies (e.g., conversion rate for leads who received an incentive vs. those who didn't).
+*   **FR-4.5:** A filterable list of all leads must be available, allowing staff to search and view individual conversation histories.
+
+### **6. In-Depth Data Schema & Rationale**
+
+This schema is designed to be normalized and robust, providing the detailed data needed for our two-agent system.
+
+| Table | Column | Data Type | Constraints | Rationale / Design Decision |
+| :--- | :--- | :--- | :--- | :--- |
+| **leads** | `id` | `SERIAL` | `PRIMARY KEY` | Standard unique identifier. |
+| | `name` | `VARCHAR(255)` | `NOT NULL` | Essential for personalization. |
+| | `email` | `VARCHAR(255)` | `UNIQUE` | Primary contact method and login identifier. |
+| | `phone` | `VARCHAR(50)` | `UNIQUE` | Secondary contact method. |
+| | `initial_inquiry`| `TEXT` | | Stores the very first thing the lead asked. Crucial context for the Outreach Agent. |
+| | `status` | `lead_status ENUM` | `NOT NULL, DEFAULT 'new'` | The core of our state machine. Drives all agent logic. |
+| | `risk_level` | `lead_risk_level ENUM`| `NOT NULL, DEFAULT 'low'` | Tracks the output of the Predictive Intervention Engine. |
+| | `sentiment_score`| `FLOAT` | `DEFAULT 0.0` | A rolling score of the conversation's mood, updated by the Risk Analyzer. |
+| | `reason_for_cold`| `TEXT` | | A field for staff to manually tag *why* a lead was lost. Invaluable data for V2. |
+| | `do_not_contact`| `BOOLEAN` | `NOT NULL, DEFAULT FALSE`| A hard stop flag for the Outreach Agent to respect user wishes. |
+| | `created_at` | `TIMESTAMPTZ` | `DEFAULT NOW()` | Tracks lead creation time. |
+| | `last_contact_at`| `TIMESTAMPTZ` | | Updated on every interaction. Used to calculate "time since last contact." |
+| **messages**| `id` | `SERIAL` | `PRIMARY KEY` | |
+| | `lead_id` | `INTEGER` | `FK to leads.id, ON DELETE CASCADE`| Ensures message integrity; if a lead is deleted, their messages are too. |
+| | `sender` | `sender_type ENUM`| `NOT NULL` | **Critical field.** Differentiates between the lead, the AI, and a human staff member. |
+| | `content` | `TEXT` | `NOT NULL` | The message body. |
+| | `created_at` | `TIMESTAMPTZ` | `DEFAULT NOW()` | Provides chronological ordering for conversation history. |
+| **offers** | `id` | `SERIAL` | `PRIMARY KEY` | |
+| | `offer_title` | `VARCHAR(255)`| `NOT NULL` | The headline of the offer. |
+| | `description` | `TEXT` | `NOT NULL` | The body text of the offer. |
+| | `valid_for_service`| `VARCHAR(100)`| `DEFAULT 'General'`| Allows us to target offers. 'Invisalign' offers for Invisalign leads. |
+| | `is_active` | `BOOLEAN` | `DEFAULT TRUE` | A simple toggle for marketers to enable/disable offers without deleting them. |
+| **testimonials** | `id` | `SERIAL` | `PRIMARY KEY` | |
+| | `service_category`| `VARCHAR(100)`| `NOT NULL` | e.g., 'Invisalign', 'Implants', 'General'. |
+| | `snippet_text` | `TEXT` | `NOT NULL` | The quote to be used as social proof. |
+| **financial_explainers** | `id` | `SERIAL` | `PRIMARY KEY` | |
+| | `lead_id` | `INTEGER` | `FK to leads.id, ON DELETE CASCADE`| |
+| | `secure_url_token`| `VARCHAR(255)`| `UNIQUE NOT NULL` | The unguessable token for the secure link. |
+| | `is_accessed` | `BOOLEAN` | `DEFAULT FALSE` | Tracks if the lead has viewed their personalized asset. |
+| | `procedure_name`| `TEXT` | | |
+| | `total_cost` | `NUMERIC(10, 2)`| | |
+| | `estimated_insurance`| `NUMERIC(10, 2)`| | |
+| | `payment_options`| `JSONB` | | Stores key-value pairs like `{"12 months": 417, "24 months": 208}`. |
+| | `created_at` | `TIMESTAMPTZ` | `DEFAULT NOW()` | |
+| **system_events**| `id` | `SERIAL` | `PRIMARY KEY` | |
+| | `lead_id` | `INTEGER` | `FK to leads.id, ON DELETE CASCADE`| Can be null for system-wide events. |
+| | `event_type` | `VARCHAR(100)`| `NOT NULL` | e.g., 'outreach_campaign_started', 'lead_flagged_at_risk'. |
+| | `details` | `TEXT` | | A human-readable description of the event. |
+| | `created_at` | `TIMESTAMPTZ` | `DEFAULT NOW()` | |
+
+### **7. Non-Functional Requirements**
+
+*   **Security:** All sensitive data must be encrypted in transit (HTTPS) and at rest. Access to personalized assets must be via secure, non-guessable tokens. The system must be protected against common web vulnerabilities (OWASP Top 10).
+*   **Scalability:** The architecture should be stateless where possible (outside of the LangGraph state) to allow for horizontal scaling of the API layer. The database should be indexed appropriately for common queries.
+*   **Reliability:** The system, particularly the background risk analysis job, must be robust and include comprehensive error handling and structured logging to a centralized service.
+*   **Maintainability:** The code must be modular, well-documented, and follow modern software engineering best practices (e.g., SOLID principles) to allow for future enhancements.
+
+### **8. Out of Scope / Future Roadmap**
+
+*   **MVP Scope:** The MVP will focus on a single communication channel (simulated via API). Direct integration with SMS/Email gateways (e.g., Twilio) is planned for V1.1.
+*   **Future Roadmap:**
+    *   **V1.1 - Multi-Channel Communication:** Integrate with Twilio for SMS.
+    *   **V1.2 - Calendar Integration:** Allow the AI to read calendar availability and propose specific appointment times.
+    *   **V1.3 - Frontend Dashboard:** Develop a dedicated web interface for the staff dashboard.
+    *   **V1.4 - Model Fine-Tuning:** After collecting several thousand real (anonymized) conversations, fine-tune a smaller, open-source LLM on the specific communication style of Bright Smile Clinic for reduced cost and higher consistency.
+
+---
+---
+
+## **Document 2: Developer Implementation Guide - The AI Patient Advocate**
+
+*   **Project:** Bright Smile Clinic - AI Patient Advocate
+*   **Version:** 7.0
+*   **Audience:** Developer using an AI-Assisted IDE (Cursor)
+*   **Objective:** This is the definitive technical manual. It provides the step-by-step instructions to build the system specified in the main PRD, including detailed logic for the two distinct agent flows.
+
+### **1. Project Setup & Environment**
+
+**Instruction:** Execute these commands in your terminal to create the complete project environment.
+
+1.  **Initial Setup:**
+    ```bash
+    mkdir bright_smile_ai && cd bright_smile_ai
+    python -m venv venv
+    source venv/bin/activate
+    pip install "fastapi[all]" uvicorn python-dotenv psycopg2-binary sqlalchemy alembic jinja2 apscheduler langgraph langchain langchain_openai vaderSentiment reportlab faker
+    alembic init migrations
+    touch .env
+    mkdir -p app/{api/endpoints,core,db,schemas,services,templates} scripts
+    find app scripts -type d -exec touch {}/__init__.py \;
+    ```
+
+2.  **`.env` Configuration:**
+    ```
+    DATABASE_URL="postgresql://your_db_user:your_db_password@localhost/brightsmiledb"
+    OPENAI_API_KEY="sk-your_openai_api_key_here"
+    SECRET_KEY="generate_a_strong_random_secret_key"
+    ```
+
+### **2. Database & Migrations Workflow**
+
+1.  **Cursor IDE Prompt (for `app/db/models.py`):**
+    ```
+    "Based on the in-depth SQL schema defined in the PRD (Section 6), create all necessary SQLAlchemy models in `app/db/models.py`. Use the declarative base from `app.db.base`. Ensure all relationships (e.g., `back_populates` on `Lead` and `Message`), foreign keys, constraints, and `__repr__` methods are correctly defined. Use `sqlalchemy.dialects.postgresql` for `ENUM` and `JSONB`."
+    ```
+2.  **Cursor IDE Prompt (for `app/schemas/`):**
+    ```
+    "Using the SQLAlchemy models from `app/db/models.py`, create corresponding Pydantic schemas in separate files within `app/schemas/`. For each model, create `Base`, `Create`, `Update`, and `Read` schemas as appropriate, setting `from_attributes = True` in the `ConfigDict` for read models."
+    ```
+3.  **Migration Execution:**
+    *   Configure `migrations/env.py` to target your models' `Base.metadata`.
+    *   Run `alembic revision --autogenerate -m "Initial schema"`.
+    *   Run `alembic upgrade head`.
+
+### **3. Data Seeding**
+
+**Instruction:** Use the detailed prompts from PRD v4.0/v5.0 to create the seeding scripts in the `scripts/` directory. Then, execute them to populate your database.
+
+```bash
+python scripts/seed_leads.py
+python scripts/seed_kb_and_testimonials.py
+python scripts/seed_offers.py
+```
+
+### **4. Service Layer Implementation (Deep Dive)**
+
+This section details the implementation of the two distinct agent logical flows.
+
+#### **4.1. The Proactive Outreach Agent**
+
+The logic for this agent will be encapsulated within the `EngagementEngine` but triggered by a specific API endpoint.
+
+*   **API Endpoint (`app/api/endpoints/agents.py`):**
+    *   **Cursor IDE Prompt:**
+        ```
+        "Create a new endpoint file `app/api/endpoints/agents.py` and add it to the main router. In this file, create a `POST /agents/trigger-outreach` endpoint. This endpoint should be protected (e.g., require an API key). It will call a new method on the EngagementEngine service: `engagement_engine.run_proactive_outreach_campaign()`."
+        ```
+*   **Service Method (`app/services/engagement_engine.py`):**
+    *   **Cursor IDE Prompt:**
+        ```
+        "In `EngagementEngine`, create a new public method `async def run_proactive_outreach_campaign(self)`. This method will:
+        1.  Fetch all leads with `status = 'cold'` from the database.
+        2.  For each lead, call a helper `async def _qualify_and_run_outreach_play(self, lead)`.
+        3.  The helper method will implement the 'Qualification Gauntlet': check `do_not_contact`, last message sender, and a 14-day cool-down period. If any fail, it logs and returns.
+        4.  If qualified, it implements the 'Strategy Selection' logic based on how long the lead has been cold.
+        5.  It will fetch data as needed (e.g., `db.query(Offer)...`).
+        6.  It will then call another helper, `_generate_llm_response(prompt, context)`, to get the message text.
+        7.  Finally, it will save the new message to the DB with `sender='ai'` and update the lead's status to 'contacted'."
+        ```
+
+#### **4.2. The Instant Reply Agent (The Core LangGraph Workflow)**
+
+This is the main, stateful graph managed by the `EngagementEngine`.
+
+*   **Service (`app/services/engagement_engine.py`):**
+    *   **Cursor IDE Prompt:**
+        ```
+        "In `EngagementEngine`, focus on the LangGraph setup in `__init__` and the `invoke_new_message` method.
+        
+        **State Definition:**
+        - Use a `TypedDict` for the graph's state. It must include: `lead_id: int`, `conversation_history: List[BaseMessage]`, `incoming_message: str`, `classified_intent: str`, `generated_response: str`, `is_handoff: bool = False`.
+
+        **Node Definitions:**
+        - `get_lead_and_history`: Loads the lead and message history.
+        - `classify_intent`: Uses an LLM with function calling to classify the intent into one of: `price_inquiry`, `booking_request`, `human_handoff`, `general_question`. This is more robust than simple text classification.
+        - `route_by_intent`: A conditional edge router. It checks `state['classified_intent']` and directs the flow.
+        - `handle_price_inquiry`: This node's job is to formulate the offer to create a Financial Explainer. It calls `asset_generator.create_financial_explainer` and constructs the response message with the secure link.
+        - `handle_booking_or_handoff`: This node sets `state['is_handoff'] = True` and formulates a confirmation message.
+        - `handle_general_question`: A standard LLM call, but it should first do a similarity search on the `testimonials` table and include any relevant snippet in the context for the LLM.
+        - `save_response`: This final node takes `state['generated_response']` and `state['is_handoff']`, saves the message to the DB, and updates the lead's status to `human_handoff` if required.
+
+        **Public Method:**
+        - The `async def invoke_new_message(self, lead_id: int, message: str)` method is the entry point. It prepares the initial state dictionary and calls `self.graph.ainvoke(...)`."
+        ```
+
+#### **4.3. Risk Analyzer & Scheduler**
+
+*   **Main Application (`app/main.py`):**
+    *   **Cursor IDE Prompt:**
+        ```
+        "In `app/main.py`, set up the APScheduler in an `@app.on_event("startup")` handler.
+        - Instantiate all your services (`AssetGenerator`, `EngagementEngine`, `RiskAnalyzer`). Note that `RiskAnalyzer` needs an instance of `EngagementEngine`, so create it first.
+        - Add a job to the scheduler that calls `risk_analyzer.analyze_all_active_leads` on a recurring interval of every 15 minutes."
+        ```
+
+### **5. API Layer & LLM Prompts**
+
+*   **API Endpoints:** Use the prompts from v6.0 to create the endpoints for leads, messages, and agents. Ensure the `POST /messages` endpoint uses background tasks for asynchronous processing.
+*   **LLM Prompts (`app/core/prompts.py`):** Create this file and populate it with the detailed, role-playing prompts for each AI task: Intent Classification, Financial Explainer Offer, Predictive Intervention, General Q&A, and the various Cold Lead Recall plays.

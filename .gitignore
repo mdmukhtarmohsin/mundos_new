@@ -1,0 +1,140 @@
+# ---- OS / Filesystem ----
+.DS_Store
+Thumbs.db
+Icon\r
+._*
+*~
+*.swp
+*.swo
+*.tmp
+*.temp
+*.bak
+*.orig
+
+# ---- Secrets / Environment ----
+.env
+.env.*
+!.env.example
+!.env.sample
+!.env.local.example
+.envrc
+.secrets/
+.secret
+
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.pyre/
+.pytype/
+coverage/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+.hypothesis/
+.ipynb_checkpoints/
+.pybuilder/
+*.egg-info/
+*.egg
+.eggs/
+build/
+dist/
+site/
+
+# Virtual environments (project + common names)
+.venv/
+venv/
+ENV/
+env/
+bright_smile_ai/venv/
+.env
+
+# Pyenv / Poetry / Pipenv metadata
+.python-version
+.pipenv
+.pdm.toml
+.pdm.lock
+.pdm-python
+
+# ---- FastAPI / Uvicorn ----
+*.log
+logs/
+
+# Databases (keep migrations, ignore local sqlite/db files)
+*.sqlite
+*.sqlite3
+*.db
+*.db-journal
+
+# ---- JavaScript / TypeScript / Node ----
+node_modules/
+frontend/node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+.eslintcache
+.stylelintcache
+.parcel-cache/
+.npm/
+.yarn/
+.yarn/cache/
+.yarn/unplugged/
+.yarn/build-state.yml
+.yarn/install-state.gz
+.pnp.*
+.turbo/
+.nyc_output/
+coverage-final.json
+
+# Vite / bundlers
+.vite/
+node_modules/.vite/
+# Frontend builds
+frontend/dist/
+# Generic builds
+/dist/
+/build/
+/tmp/
+/temp/
+
+# TypeScript
+*.tsbuildinfo
+tsconfig.tsbuildinfo
+
+# Framework/platform specific
+.next/
+.nuxt/
+.output/
+.vercel/
+.netlify/
+.serverless/
+
+# ---- Editors / IDE ----
+.idea/
+.vscode/
+*.code-workspace
+.history/
+.vs/
+
+# ---- Caches ----
+.cache/
+.cache-loader/
+
+# ---- Docker (optional local data) ----
+docker-data/
+docker-compose.override.yml
+
+# ---- Misc ----
+*.cover
+*.py,cover
+*.tgz
+*.tar
+*.tar.gz
