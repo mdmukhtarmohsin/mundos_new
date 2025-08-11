@@ -1,0 +1,232 @@
+import {
+  Lead,
+  Message,
+  DashboardOverview,
+  LeadFunnel,
+  RiskAnalysis,
+  AIPerformance,
+  RecentActivity,
+  CampaignHistory,
+  PerformanceMetrics,
+  ConversationStats,
+  FinancialExplainer,
+  OutreachResponse,
+  RiskAnalysisResponse,
+} from '@/types';
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
+
+class ApiService {
+  private async request<T>(
+    endpoint: string,
+    options: RequestInit = {}
+  ): Promise<T> {
+    const url = `${API_BASE_URL}${endpoint}`;
+    console.log('Making API request to:', url);
+    console.log('API_BASE_URL:', API_BASE_URL);
+    
+    const response = await fetch(url, {
+      headers: {
+        'Content-Type': 'application/json',
+        ...options.headers,
+      },
+      ...options,
+    });
+
+    console.log('API response status:', response.status);
+    console.log('API response ok:', response.ok);
+
+    if (!response.ok) {
+      throw new Error(`API request failed: ${response.statusText}`);
+    }
+
+    return response.json();
+  }
+
+  // Lead Management
+  async getLeads(): Promise<Lead[]> {
+    return this.request<Lead[]>('/leads/');
+  }
+
+  async getLead(id: number): Promise<Lead> {
+    return this.request<Lead>(`/leads/${id}`);
+  }
+
+  async createLead(lead: Omit<Lead, 'id' | 'created_at' | 'last_contact_at'>): Promise<Lead> {
+    return this.request<Lead>('/leads/', {
+      method: 'POST',
+      body: JSON.stringify(lead),
+    });
+  }
+
+  async updateLead(id: number, updates: Partial<Lead>): Promise<Lead> {
+    return this.request<Lead>(`/leads/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(updates),
+    });
+  }
+
+  async updateLeadStatus(id: number, status: Lead['status']): Promise<Lead> {
+    return this.request<Lead>(`/leads/${id}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status }),
+    });
+  }
+
+  async deleteLead(id: number): Promise<void> {
+    return this.request<void>(`/leads/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async getLeadConversation(id: number): Promise<Message[]> {
+    return this.request<Message[]>(`/leads/${id}/conversation`);
+  }
+
+  async simulateMessage(leadId: number, message: string): Promise<Message> {
+    return this.request<Message>(`/leads/${leadId}/simulate-message`, {
+      method: 'POST',
+      body: JSON.stringify({ message }),
+    });
+  }
+
+  // Message Management
+  async createMessage(message: Omit<Message, 'id' | 'created_at'>): Promise<Message> {
+    return this.request<Message>('/messages/', {
+      method: 'POST',
+      body: JSON.stringify(message),
+    });
+  }
+
+  async createMessageFromLead(message: Omit<Message, 'id' | 'created_at'>): Promise<Message> {
+    return this.request<Message>('/messages/from-lead', {
+      method: 'POST',
+      body: JSON.stringify(message),
+    });
+  }
+
+  async getMessage(id: number): Promise<Message> {
+    return this.request<Message>(`/messages/${id}`);
+  }
+
+  async deleteMessage(id: number): Promise<void> {
+    return this.request<void>(`/messages/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async getLeadConversationMessages(leadId: number): Promise<Message[]> {
+    return this.request<Message[]>(`/messages/lead/${leadId}/conversation`);
+  }
+
+  async getLeadConversationStats(leadId: number): Promise<ConversationStats> {
+    return this.request<ConversationStats>(`/messages/lead/${leadId}/stats`);
+  }
+
+  // AI Agents
+  async triggerOutreach(): Promise<OutreachResponse> {
+    return this.request<OutreachResponse>('/agents/trigger-outreach', {
+      method: 'POST',
+      headers: {
+        'X-API-Key': 'bright-smile-agent-key'
+      }
+    });
+  }
+
+  async analyzeRisk(): Promise<RiskAnalysisResponse> {
+    return this.request<RiskAnalysisResponse>('/agents/analyze-risk', {
+      method: 'POST',
+      headers: {
+        'X-API-Key': 'bright-smile-agent-key'
+      }
+    });
+  }
+
+  async getAgentStatus(): Promise<{ status: string; last_run: string }> {
+    return this.request<{ status: string; last_run: string }>('/agents/status');
+  }
+
+  async testInstantReply(leadId: number, message: string): Promise<Message> {
+    return this.request<Message>('/agents/test-instant-reply', {
+      method: 'POST',
+      headers: {
+        'X-API-Key': 'bright-smile-agent-key'
+      },
+      body: JSON.stringify({ lead_id: leadId, message }),
+    });
+  }
+
+  async getCampaignHistory(): Promise<CampaignHistory[]> {
+    return this.request<CampaignHistory[]>('/agents/campaign-history');
+  }
+
+  async getPerformanceMetrics(): Promise<PerformanceMetrics> {
+    return this.request<PerformanceMetrics>('/agents/performance-metrics');
+  }
+
+  // Dashboard
+  async getDashboardOverview(): Promise<DashboardOverview> {
+    return this.request<DashboardOverview>('/dashboard/overview');
+  }
+
+  async getLeadFunnel(): Promise<LeadFunnel> {
+    return this.request<LeadFunnel>('/dashboard/lead-funnel');
+  }
+
+  async getRiskAnalysis(): Promise<RiskAnalysis> {
+    return this.request<RiskAnalysis>('/dashboard/risk-analysis');
+  }
+
+  async getAIPerformance(): Promise<AIPerformance> {
+    return this.request<AIPerformance>('/dashboard/ai-performance');
+  }
+
+  async getRecentActivity(): Promise<RecentActivity> {
+    return this.request<RecentActivity>('/dashboard/recent-activity');
+  }
+
+  async exportData(): Promise<Blob> {
+    const response = await fetch(`${API_BASE_URL}/dashboard/export-data`);
+    if (!response.ok) {
+      throw new Error('Export failed');
+    }
+    return response.blob();
+  }
+
+  // Financial Explainer
+  async getFinancialExplainer(token: string): Promise<FinancialExplainer> {
+    return this.request<FinancialExplainer>(`/financial-explainer/${token}`);
+  }
+
+  async getFinancialExplainerHTML(token: string): Promise<string> {
+    const response = await fetch(`${API_BASE_URL}/financial-explainer/${token}/html`);
+    if (!response.ok) {
+      throw new Error('Failed to fetch financial explainer HTML');
+    }
+    return response.text();
+  }
+
+  async getFinancialExplainerStats(): Promise<{
+    total_generated: number;
+    accessed_count: number;
+    conversion_rate: number;
+  }> {
+    return this.request<{
+      total_generated: number;
+      accessed_count: number;
+      conversion_rate: number;
+    }>('/financial-explainer/admin/stats');
+  }
+
+  async getFinancialExplainerAdmin(id: number): Promise<FinancialExplainer> {
+    return this.request<FinancialExplainer>(`/financial-explainer/admin/${id}`);
+  }
+
+  async deleteFinancialExplainer(id: number): Promise<void> {
+    return this.request<void>(`/financial-explainer/admin/${id}`, {
+      method: 'DELETE',
+    });
+  }
+}
+
+export const apiService = new ApiService(); 
