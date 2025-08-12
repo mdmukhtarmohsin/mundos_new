@@ -7,11 +7,10 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   Search, 
-  Filter, 
   Plus, 
   MessageSquare, 
   Phone, 
@@ -20,13 +19,12 @@ import {
   TrendingUp,
   AlertTriangle,
   UserCheck,
-  UserX,
-  DollarSign
+  Loader2
 } from 'lucide-react';
 import { apiService } from '@/lib/api';
 import { Lead, Message } from '@/types';
 import { toast } from 'sonner';
-import { formatDate, formatCurrency } from '@/lib/utils';
+import { formatDate } from '@/lib/utils';
 
 interface LeadManagementProps {
   onLeadSelect?: (lead: Lead) => void;
@@ -41,6 +39,8 @@ export function LeadManagement({ onLeadSelect }: LeadManagementProps) {
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [conversation, setConversation] = useState<Message[]>([]);
   const [showLeadDetails, setShowLeadDetails] = useState(false);
+  const [conversationLoading, setConversationLoading] = useState(false);
+  const [sendingMessage, setSendingMessage] = useState(false);
 
   useEffect(() => {
     fetchLeads();
@@ -54,15 +54,11 @@ export function LeadManagement({ onLeadSelect }: LeadManagementProps) {
     try {
       setLoading(true);
       const data = await apiService.getLeads();
-      console.log('API response data:', data);
-      // Validate that each lead has required fields
       const validatedData = data.map(lead => {
         if (!lead.status) {
-          console.warn(`Lead ${lead.id} missing status field:`, lead);
           return { ...lead, status: 'new' as Lead['status'] };
         }
         if (!lead.risk_level) {
-          console.warn(`Lead ${lead.id} missing risk_level field:`, lead);
           return { ...lead, risk_level: 'medium' as Lead['risk_level'] };
         }
         return lead;
@@ -71,48 +67,7 @@ export function LeadManagement({ onLeadSelect }: LeadManagementProps) {
     } catch (error) {
       console.error('Failed to fetch leads:', error);
       toast.error('Failed to load leads');
-      // Use mock data for demo
-      setLeads([
-        {
-          id: 1,
-          name: 'John Smith',
-          email: 'john.smith@email.com',
-          phone: '(555) 123-4567',
-          initial_inquiry: 'I need Invisalign treatment',
-          status: 'active',
-          risk_level: 'low',
-          sentiment_score: 0.8,
-          do_not_contact: false,
-          created_at: '2024-01-15T10:00:00Z',
-          last_contact_at: '2024-01-20T14:30:00Z',
-        },
-        {
-          id: 2,
-          name: 'Sarah Johnson',
-          email: 'sarah.j@email.com',
-          phone: '(555) 987-6543',
-          initial_inquiry: 'Dental implant consultation',
-          status: 'at_risk',
-          risk_level: 'medium',
-          sentiment_score: 0.3,
-          do_not_contact: false,
-          created_at: '2024-01-10T09:00:00Z',
-          last_contact_at: '2024-01-18T11:00:00Z',
-        },
-        {
-          id: 3,
-          name: 'Mike Davis',
-          email: 'mike.davis@email.com',
-          phone: '(555) 456-7890',
-          initial_inquiry: 'General cleaning and checkup',
-          status: 'cold',
-          risk_level: 'high',
-          sentiment_score: -0.2,
-          do_not_contact: false,
-          created_at: '2024-01-05T08:00:00Z',
-          last_contact_at: '2024-01-12T16:00:00Z',
-        },
-      ]);
+      setLeads([]);
     } finally {
       setLoading(false);
     }
@@ -139,19 +94,17 @@ export function LeadManagement({ onLeadSelect }: LeadManagementProps) {
 
   const getStatusBadge = (status: Lead['status']) => {
     const statusConfig = {
-      new: { label: 'New', variant: 'default', className: 'bg-blue-100 text-blue-800' },
-      active: { label: 'Active', variant: 'default', className: 'bg-green-100 text-green-800' },
-      at_risk: { label: 'At Risk', variant: 'default', className: 'bg-yellow-100 text-yellow-800' },
-      cold: { label: 'Cold', variant: 'default', className: 'bg-gray-100 text-gray-800' },
-      contacted: { label: 'Contacted', variant: 'default', className: 'bg-indigo-100 text-indigo-800' },
-      human_handoff: { label: 'Human Handoff', variant: 'default', className: 'bg-purple-100 text-purple-800' },
-      converted: { label: 'Converted', variant: 'default', className: 'bg-emerald-100 text-emerald-800' },
-      do_not_contact: { label: 'Do Not Contact', variant: 'default', className: 'bg-red-100 text-red-800' },
+      new: { label: 'New', className: 'bg-blue-100 text-blue-800' },
+      active: { label: 'Active', className: 'bg-green-100 text-green-800' },
+      at_risk: { label: 'At Risk', className: 'bg-yellow-100 text-yellow-800' },
+      cold: { label: 'Cold', className: 'bg-gray-100 text-gray-800' },
+      contacted: { label: 'Contacted', className: 'bg-indigo-100 text-indigo-800' },
+      human_handoff: { label: 'Human Handoff', className: 'bg-purple-100 text-purple-800' },
+      converted: { label: 'Converted', className: 'bg-emerald-100 text-emerald-800' },
+      do_not_contact: { label: 'Do Not Contact', className: 'bg-red-100 text-red-800' },
     };
 
-    // Add defensive programming to handle undefined or invalid status
     if (!status || !statusConfig[status]) {
-      console.warn(`Invalid or undefined status: ${status}`);
       return (
         <Badge className="bg-gray-100 text-gray-800">
           Unknown
@@ -174,9 +127,7 @@ export function LeadManagement({ onLeadSelect }: LeadManagementProps) {
       high: { label: 'High', className: 'bg-red-100 text-red-800' },
     };
 
-    // Add defensive programming to handle undefined or invalid risk level
     if (!riskLevel || !riskConfig[riskLevel]) {
-      console.warn(`Invalid or undefined risk level: ${riskLevel}`);
       return (
         <Badge className="bg-gray-100 text-gray-800">
           Unknown
@@ -194,21 +145,30 @@ export function LeadManagement({ onLeadSelect }: LeadManagementProps) {
 
   const handleLeadSelect = async (lead: Lead) => {
     setSelectedLead(lead);
+    setShowLeadDetails(true);
+    await fetchConversation(lead.id);
+  };
+
+  const fetchConversation = async (leadId: number) => {
     try {
-      const messages = await apiService.getLeadConversation(lead.id);
-      setConversation(messages);
+      setConversationLoading(true);
+      const messages = await apiService.getLeadConversation(leadId);
+      // Reverse the messages to show newest first
+      setConversation(messages.reverse());
     } catch (error) {
       console.error('Failed to fetch conversation:', error);
       setConversation([]);
+      toast.error('Failed to load conversation');
+    } finally {
+      setConversationLoading(false);
     }
-    setShowLeadDetails(true);
   };
 
   const updateLeadStatus = async (leadId: number, newStatus: Lead['status']) => {
     try {
       await apiService.updateLeadStatus(leadId, newStatus);
       toast.success('Lead status updated successfully');
-      fetchLeads(); // Refresh the list
+      fetchLeads();
     } catch (error) {
       console.error('Failed to update lead status:', error);
       toast.error('Failed to update lead status');
@@ -216,24 +176,32 @@ export function LeadManagement({ onLeadSelect }: LeadManagementProps) {
   };
 
   const simulateMessage = async (leadId: number, message: string) => {
+    if (!message.trim()) return;
+    
     try {
+      setSendingMessage(true);
       await apiService.simulateMessage(leadId, message);
       toast.success('Message sent successfully');
       // Refresh conversation
       if (selectedLead) {
         const messages = await apiService.getLeadConversation(selectedLead.id);
-        setConversation(messages);
+        setConversation(messages.reverse());
       }
     } catch (error) {
       console.error('Failed to send message:', error);
       toast.error('Failed to send message');
+    } finally {
+      setSendingMessage(false);
     }
   };
 
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-12 w-12 animate-spin text-blue-600" />
+          <p className="text-gray-600">Loading leads...</p>
+        </div>
       </div>
     );
   }
@@ -288,149 +256,163 @@ export function LeadManagement({ onLeadSelect }: LeadManagementProps) {
           <CardTitle>Patient Leads ({filteredLeads.length})</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Contact</TableHead>
-                  <TableHead>Initial Inquiry</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Risk Level</TableHead>
-                  <TableHead>Last Contact</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredLeads.map((lead) => (
-                  <TableRow key={lead.id} className="hover:bg-gray-50 cursor-pointer">
-                    <TableCell>
-                      <div>
-                        <div className="font-medium text-gray-900">{lead.name}</div>
-                        <div className="text-sm text-gray-500">ID: {lead.id}</div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2 text-sm">
-                          <Mail className="h-3 w-3" />
-                          {lead.email}
-                        </div>
-                        <div className="flex items-center gap-2 text-sm">
-                          <Phone className="h-3 w-3" />
-                          {lead.phone}
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="max-w-xs truncate" title={lead.initial_inquiry}>
-                        {lead.initial_inquiry}
-                      </div>
-                    </TableCell>
-                    <TableCell>{getStatusBadge(lead.status)}</TableCell>
-                    <TableCell>{getRiskBadge(lead.risk_level)}</TableCell>
-                    <TableCell>
-                      <div className="text-sm">
-                        <div>{formatDate(lead.created_at)}</div>
-                        {lead.last_contact_at && (
-                          <div className="text-gray-500">
-                            Last: {formatDate(lead.last_contact_at)}
-                          </div>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleLeadSelect(lead)}
-                        >
-                          <MessageSquare className="h-4 w-4 mr-1" />
-                          View
-                        </Button>
-                        <Select
-                          value={lead.status}
-                          onValueChange={(value: Lead['status']) => updateLeadStatus(lead.id, value)}
-                        >
-                          <SelectTrigger className="w-32">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="new">New</SelectItem>
-                            <SelectItem value="active">Active</SelectItem>
-                            <SelectItem value="at_risk">At Risk</SelectItem>
-                            <SelectItem value="cold">Cold</SelectItem>
-                            <SelectItem value="contacted">Contacted</SelectItem>
-                            <SelectItem value="human_handoff">Human Handoff</SelectItem>
-                            <SelectItem value="converted">Converted</SelectItem>
-                            <SelectItem value="do_not_contact">Do Not Contact</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </TableCell>
+          {filteredLeads.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              {leads.length === 0 ? 'No leads found' : 'No leads match your search criteria'}
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Contact</TableHead>
+                    <TableHead>Initial Inquiry</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Risk Level</TableHead>
+                    <TableHead>Last Contact</TableHead>
+                    <TableHead>Actions</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
+                </TableHeader>
+                <TableBody>
+                  {filteredLeads.map((lead) => (
+                    <TableRow key={lead.id} className="hover:bg-gray-50 cursor-pointer">
+                      <TableCell>
+                        <div>
+                          <div className="font-medium text-gray-900">{lead.name}</div>
+                          <div className="text-sm text-gray-500">ID: {lead.id}</div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2 text-sm">
+                            <Mail className="h-3 w-3" />
+                            {lead.email}
+                          </div>
+                          <div className="flex items-center gap-2 text-sm">
+                            <Phone className="h-3 w-3" />
+                            {lead.phone}
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="max-w-xs truncate" title={lead.initial_inquiry}>
+                          {lead.initial_inquiry}
+                        </div>
+                      </TableCell>
+                      <TableCell>{getStatusBadge(lead.status)}</TableCell>
+                      <TableCell>{getRiskBadge(lead.risk_level)}</TableCell>
+                      <TableCell>
+                        <div className="text-sm">
+                          <div>{formatDate(lead.created_at)}</div>
+                          {lead.last_contact_at && (
+                            <div className="text-gray-500">
+                              Last: {formatDate(lead.last_contact_at)}
+                            </div>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleLeadSelect(lead)}
+                          >
+                            <MessageSquare className="h-4 w-4 mr-1" />
+                            View
+                          </Button>
+                          <Select
+                            value={lead.status}
+                            onValueChange={(value: Lead['status']) => updateLeadStatus(lead.id, value)}
+                          >
+                            <SelectTrigger className="w-32">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="new">New</SelectItem>
+                              <SelectItem value="active">Active</SelectItem>
+                              <SelectItem value="at_risk">At Risk</SelectItem>
+                              <SelectItem value="cold">Cold</SelectItem>
+                              <SelectItem value="contacted">Contacted</SelectItem>
+                              <SelectItem value="human_handoff">Human Handoff</SelectItem>
+                              <SelectItem value="converted">Converted</SelectItem>
+                              <SelectItem value="do_not_contact">Do Not Contact</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
         </CardContent>
       </Card>
 
       {/* Lead Details Dialog */}
       <Dialog open={showLeadDetails} onOpenChange={setShowLeadDetails}>
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Lead Details - {selectedLead?.name}</DialogTitle>
+        <DialogContent className="w-[95vw] h-fit max-w-none max-h-[90vh] overflow-hidden">
+          <DialogHeader className="pb-4">
+            <DialogTitle className="text-2xl">Lead Details - {selectedLead?.name}</DialogTitle>
           </DialogHeader>
           
           {selectedLead && (
-            <Tabs defaultValue="overview" className="w-full">
-              <TabsList className="grid w-full grid-cols-4">
+            <Tabs defaultValue="conversation" className="w-full h-full flex flex-col">
+              <TabsList className="grid w-full grid-cols-3 mb-4">
                 <TabsTrigger value="overview">Overview</TabsTrigger>
                 <TabsTrigger value="conversation">Conversation</TabsTrigger>
                 <TabsTrigger value="analytics">Analytics</TabsTrigger>
-                <TabsTrigger value="actions">Actions</TabsTrigger>
               </TabsList>
 
-              <TabsContent value="overview" className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
+              <TabsContent value="overview" className="flex-1 overflow-y-auto max-h-[400px] space-y-6">
+                <div className="grid grid-cols-1 lg:grid-cols-1 gap-6">
                   <Card>
                     <CardHeader>
-                      <CardTitle className="text-lg">Contact Information</CardTitle>
+                      <CardTitle className="text-xl flex items-center gap-2">
+                        <UserCheck className="h-5 w-5 text-blue-600" />
+                        Contact Information
+                      </CardTitle>
                     </CardHeader>
-                    <CardContent className="space-y-2">
-                      <div className="flex items-center gap-2">
-                        <UserCheck className="h-4 w-4 text-gray-500" />
-                        <span className="font-medium">{selectedLead.name}</span>
+                    <CardContent className="space-y-4">
+                      <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                        <UserCheck className="h-5 w-5 text-gray-500" />
+                        <div>
+                          <div className="font-semibold text-gray-900">{selectedLead.name}</div>
+                          <div className="text-sm text-gray-500">Lead ID: {selectedLead.id}</div>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <Mail className="h-4 w-4 text-gray-500" />
-                        <span>{selectedLead.email}</span>
+                      <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                        <Mail className="h-5 w-5 text-gray-500" />
+                        <span className="text-gray-900">{selectedLead.email}</span>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <Phone className="h-4 w-4 text-gray-500" />
-                        <span>{selectedLead.phone}</span>
+                      <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                        <Phone className="h-5 w-5 text-gray-500" />
+                        <span className="text-gray-900">{selectedLead.phone}</span>
                       </div>
                     </CardContent>
                   </Card>
 
                   <Card>
                     <CardHeader>
-                      <CardTitle className="text-lg">Lead Status</CardTitle>
+                      <CardTitle className="text-xl flex items-center gap-2">
+                        <TrendingUp className="h-5 w-5 text-green-600" />
+                        Lead Status & Metrics
+                      </CardTitle>
                     </CardHeader>
-                    <CardContent className="space-y-2">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm text-gray-500">Status:</span>
+                    <CardContent className="space-y-4">
+                      <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                        <span className="text-gray-600">Status:</span>
                         {getStatusBadge(selectedLead.status)}
                       </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm text-gray-500">Risk Level:</span>
+                      <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                        <span className="text-gray-600">Risk Level:</span>
                         {getRiskBadge(selectedLead.risk_level)}
                       </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm text-gray-500">Sentiment:</span>
-                        <span className={`font-medium ${
+                      <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                        <span className="text-gray-600">Sentiment Score:</span>
+                        <span className={`font-semibold ${
                           selectedLead.sentiment_score > 0.5 ? 'text-green-600' :
                           selectedLead.sentiment_score < -0.5 ? 'text-red-600' : 'text-yellow-600'
                         }`}>
@@ -443,146 +425,40 @@ export function LeadManagement({ onLeadSelect }: LeadManagementProps) {
 
                 <Card>
                   <CardHeader>
-                    <CardTitle className="text-lg">Initial Inquiry</CardTitle>
+                    <CardTitle className="text-xl">Initial Inquiry</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-gray-700">{selectedLead.initial_inquiry}</p>
+                    <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                      <p className="text-gray-800 leading-relaxed">{selectedLead.initial_inquiry}</p>
+                    </div>
                   </CardContent>
                 </Card>
-              </TabsContent>
 
-              <TabsContent value="conversation" className="space-y-4">
-                <div className="space-y-4">
-                  <div className="flex gap-2">
-                    <Input
-                      placeholder="Type a message to simulate..."
-                      className="flex-1"
-                      id="simulate-message"
-                    />
-                    <Button
-                      onClick={() => {
-                        const input = document.getElementById('simulate-message') as HTMLInputElement;
-                        if (input.value.trim()) {
-                          simulateMessage(selectedLead.id, input.value.trim());
-                          input.value = '';
-                        }
-                      }}
-                    >
-                      Send
-                    </Button>
-                  </div>
-
-                  <div className="space-y-3 max-h-96 overflow-y-auto">
-                    {conversation.map((message) => (
-                      <div
-                        key={message.id}
-                        className={`flex ${
-                          message.sender === 'lead' ? 'justify-start' : 'justify-end'
-                        }`}
-                      >
-                        <div
-                          className={`max-w-xs lg:max-w-md rounded-lg px-4 py-3 shadow-sm ${
-                            message.sender === 'lead'
-                              ? 'bg-white border border-gray-200 text-gray-900'
-                              : message.sender === 'ai'
-                              ? 'bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 text-blue-900'
-                              : 'bg-gradient-to-r from-green-50 to-green-100 border border-green-200 text-green-900'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2 mb-2">
-                            <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium ${
-                              message.sender === 'lead'
-                                ? 'bg-gray-500 text-white'
-                                : message.sender === 'ai'
-                                ? 'bg-blue-500 text-white'
-                                : 'bg-green-500 text-white'
-                            }`}>
-                              {message.sender === 'lead' ? 'P' : 
-                               message.sender === 'ai' ? 'AI' : 'S'}
-                            </div>
-                            <div className="text-xs font-medium text-gray-600">
-                              {message.sender === 'lead' ? 'Patient' : 
-                               message.sender === 'ai' ? 'AI Assistant' : 'Staff Member'}
-                            </div>
-                            <div className="text-xs text-gray-400 ml-auto">
-                              {formatDate(message.created_at)}
-                            </div>
-                          </div>
-                          <div className="text-sm leading-relaxed whitespace-pre-wrap">
-                            {message.content}
-                          </div>
-                          {message.intent_classification && (
-                            <div className="mt-2 pt-2 border-t border-gray-100">
-                              <span className="text-xs text-gray-500">
-                                Intent: {message.intent_classification.replace(/_/g, ' ')}
-                              </span>
-                            </div>
-                          )}
+                <div className="grid grid-cols-1 lg:grid-cols-1 gap-6">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-lg">Timeline</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                        <div>
+                          <div className="font-medium">Lead Created</div>
+                          <div className="text-sm text-gray-500">{formatDate(selectedLead.created_at)}</div>
                         </div>
                       </div>
-                    ))}
-                  </div>
-                </div>
-              </TabsContent>
-
-              <TabsContent value="analytics" className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-lg flex items-center gap-2">
-                        <TrendingUp className="h-5 w-5" />
-                        Engagement Metrics
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-2">
-                      <div className="flex justify-between">
-                        <span>Total Messages:</span>
-                        <span className="font-medium">{conversation.length}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Lead Messages:</span>
-                        <span className="font-medium">
-                          {conversation.filter(m => m.sender === 'lead').length}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>AI Responses:</span>
-                        <span className="font-medium">
-                          {conversation.filter(m => m.sender === 'ai').length}
-                        </span>
-                      </div>
+                      {selectedLead.last_contact_at && (
+                        <div className="flex items-center gap-3">
+                          <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                          <div>
+                            <div className="font-medium">Last Contact</div>
+                            <div className="text-sm text-gray-500">{formatDate(selectedLead.last_contact_at)}</div>
+                          </div>
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
 
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-lg flex items-center gap-2">
-                        <AlertTriangle className="h-5 w-5" />
-                        Risk Analysis
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-2">
-                      <div className="flex justify-between">
-                        <span>Current Risk:</span>
-                        {getRiskBadge(selectedLead.risk_level)}
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Sentiment Trend:</span>
-                        <span className={`font-medium ${
-                          selectedLead.sentiment_score > 0.5 ? 'text-green-600' :
-                          selectedLead.sentiment_score < -0.5 ? 'text-red-600' : 'text-yellow-600'
-                        }`}>
-                          {selectedLead.sentiment_score > 0.5 ? 'Positive' :
-                           selectedLead.sentiment_score < -0.5 ? 'Negative' : 'Neutral'}
-                        </span>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-              </TabsContent>
-
-              <TabsContent value="actions" className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
                   <Card>
                     <CardHeader>
                       <CardTitle className="text-lg">Quick Actions</CardTitle>
@@ -602,24 +478,189 @@ export function LeadManagement({ onLeadSelect }: LeadManagementProps) {
                       </Button>
                     </CardContent>
                   </Card>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="conversation" className="flex-1 flex flex-col">
+                <div className="flex gap-3 mb-4">
+                  <Input
+                    placeholder="Type a message to simulate..."
+                    className="flex-1"
+                    id="simulate-message"
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter') {
+                        const input = e.target as HTMLInputElement;
+                        if (input.value.trim()) {
+                          simulateMessage(selectedLead.id, input.value.trim());
+                          input.value = '';
+                        }
+                      }
+                    }}
+                  />
+                  <Button
+                    onClick={() => {
+                      const input = document.getElementById('simulate-message') as HTMLInputElement;
+                      if (input.value.trim()) {
+                        simulateMessage(selectedLead.id, input.value.trim());
+                        input.value = '';
+                      }
+                    }}
+                    disabled={sendingMessage}
+                  >
+                    {sendingMessage ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Sending...
+                      </>
+                    ) : (
+                      'Send'
+                    )}
+                  </Button>
+                </div>
+
+                {conversationLoading ? (
+                  <div className="flex items-center justify-center py-12">
+                    <div className="flex flex-col items-center gap-4">
+                      <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+                      <p className="text-gray-600">Loading conversation...</p>
+                    </div>
+                  </div>
+                ) : conversation.length === 0 ? (
+                  <div className="text-center py-12 text-gray-500">
+                    <MessageSquare className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                    <p>No messages yet</p>
+                    <p className="text-sm">Start the conversation by sending a message</p>
+                  </div>
+                ) : (
+                  <div className="flex-1 overflow-y-auto border rounded-lg p-4 bg-gray-50" style={{ maxHeight: '400px' }}>
+                    <div className="space-y-4 w-full">
+                      {conversation.map((message) => (
+                        <div
+                          key={message.id}
+                          className={`flex w-full ${
+                            message.sender === 'lead' ? 'justify-start' : 'justify-end'
+                          }`}
+                        >
+                          <div
+                            className={`max-w-md rounded-lg px-4 py-3 shadow-sm ${
+                              message.sender === 'lead'
+                                ? 'bg-white border border-gray-200 text-gray-900'
+                                : message.sender === 'ai'
+                                ? 'bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 text-blue-900'
+                                : 'bg-gradient-to-r from-green-50 to-green-100 border border-green-200 text-green-900'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2 mb-2">
+                              <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium ${
+                                message.sender === 'lead'
+                                  ? 'bg-gray-500 text-white'
+                                  : message.sender === 'ai'
+                                  ? 'bg-blue-500 text-white'
+                                  : 'bg-green-500 text-white'
+                              }`}>
+                                {message.sender === 'lead' ? 'P' : 
+                                 message.sender === 'ai' ? 'AI' : 'S'}
+                              </div>
+                              <div className="text-xs font-medium text-gray-600">
+                                {message.sender === 'lead' ? 'Patient' : 
+                                 message.sender === 'ai' ? 'AI Assistant' : 'Staff Member'}
+                              </div>
+                              <div className="text-xs text-gray-400 ml-auto">
+                                {formatDate(message.created_at)}
+                              </div>
+                            </div>
+                            <div className="text-sm leading-relaxed whitespace-pre-wrap">
+                              {message.content}
+                            </div>
+                            {message.intent_classification && (
+                              <div className="mt-2 pt-2 border-t border-gray-100">
+                                <span className="text-xs text-gray-500">
+                                  Intent: {message.intent_classification.replace(/_/g, ' ')}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </TabsContent>
+
+              <TabsContent value="analytics" className="flex-1 overflow-y-auto max-h-[400px] space-y-6">
+                <div className="grid grid-cols-1 lg:grid-cols-1 gap-6">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-xl flex items-center gap-2">
+                        <TrendingUp className="h-5 w-5 text-blue-600" />
+                        Engagement Metrics
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="text-center p-4 bg-blue-50 rounded-lg">
+                          <div className="text-2xl font-bold text-blue-600">{conversation.length}</div>
+                          <div className="text-sm text-gray-600">Total Messages</div>
+                        </div>
+                        <div className="text-center p-4 bg-green-50 rounded-lg">
+                          <div className="text-2xl font-bold text-green-600">
+                            {conversation.filter(m => m.sender === 'lead').length}
+                          </div>
+                          <div className="text-sm text-gray-600">Lead Messages</div>
+                        </div>
+                      </div>
+                      <div className="text-center p-4 bg-purple-50 rounded-lg">
+                        <div className="text-2xl font-bold text-purple-600">
+                          {conversation.filter(m => m.sender === 'ai').length}
+                        </div>
+                        <div className="text-sm text-gray-600">AI Responses</div>
+                      </div>
+                    </CardContent>
+                  </Card>
 
                   <Card>
                     <CardHeader>
-                      <CardTitle className="text-lg">AI Actions</CardTitle>
+                      <CardTitle className="text-xl flex items-center gap-2">
+                        <AlertTriangle className="h-5 w-5 text-orange-600" />
+                        Risk Analysis
+                      </CardTitle>
                     </CardHeader>
-                    <CardContent className="space-y-3">
-                      <Button className="w-full" variant="outline">
-                        <DollarSign className="h-4 w-4 mr-2" />
-                        Generate Report
-                      </Button>
-                      <Button className="w-full" variant="outline">
-                        <TrendingUp className="h-4 w-4 mr-2" />
-                        Trigger Outreach Campaign
-                      </Button>
-                      <Button className="w-full" variant="outline">
-                        <AlertTriangle className="h-4 w-4 mr-2" />
-                        Analyze Risk
-                      </Button>
+                    <CardContent className="space-y-4">
+                      <div className="p-4 bg-gray-50 rounded-lg">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-gray-600">Current Risk:</span>
+                          {getRiskBadge(selectedLead.risk_level)}
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-gray-600">Sentiment Trend:</span>
+                          <span className={`font-semibold ${
+                            selectedLead.sentiment_score > 0.5 ? 'text-green-600' :
+                            selectedLead.sentiment_score < -0.5 ? 'text-red-600' : 'text-yellow-600'
+                          }`}>
+                            {selectedLead.sentiment_score > 0.5 ? 'Positive' :
+                             selectedLead.sentiment_score < -0.5 ? 'Negative' : 'Neutral'}
+                          </span>
+                        </div>
+                      </div>
+                      
+                      <div className="p-4 bg-blue-50 rounded-lg">
+                        <div className="text-sm text-gray-600 mb-2">Sentiment Score</div>
+                        <div className="w-full bg-gray-200 rounded-full h-2">
+                          <div 
+                            className={`h-2 rounded-full ${
+                              selectedLead.sentiment_score > 0.5 ? 'bg-green-500' :
+                              selectedLead.sentiment_score < -0.5 ? 'bg-red-500' : 'bg-yellow-500'
+                            }`}
+                            style={{ 
+                              width: `${Math.abs(selectedLead.sentiment_score) * 100}%`,
+                              marginLeft: selectedLead.sentiment_score < 0 ? 'auto' : '0'
+                            }}
+                          ></div>
+                        </div>
+                        <div className="text-xs text-gray-500 mt-1 text-center">
+                          {selectedLead.sentiment_score.toFixed(2)}
+                        </div>
+                      </div>
                     </CardContent>
                   </Card>
                 </div>
