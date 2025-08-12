@@ -20,7 +20,11 @@ import {
   RefreshCw,
   BarChart3,
   Target,
-  Zap
+  Zap,
+  Search,
+  Brain,
+  Shield,
+  Activity
 } from 'lucide-react';
 import { apiService } from '@/lib/api';
 import { toast } from 'sonner';
@@ -46,6 +50,27 @@ interface CampaignHistory {
   created_at: string;
 }
 
+interface AILeadScanningResult {
+  total_scanned: number;
+  opportunities_identified: number;
+  proactive_messages_sent: number;
+  leads_escalated: number;
+}
+
+interface ComprehensiveAnalysisResult {
+  ai_lead_scanning: AILeadScanningResult;
+  risk_analysis: {
+    total_analyzed: number;
+    newly_at_risk: number;
+    interventions_triggered: number;
+    aggressive_offers_sent: number;
+    moved_to_cold: number;
+  };
+  total_opportunities: number;
+  total_interventions: number;
+  leads_escalated: number;
+}
+
 export function AIAgentsManagement() {
   const [agentStatus, setAgentStatus] = useState<AgentStatus | null>(null);
   const [performanceMetrics, setPerformanceMetrics] = useState<PerformanceMetrics | null>(null);
@@ -53,6 +78,13 @@ export function AIAgentsManagement() {
   const [loading, setLoading] = useState(false);
   const [outreachRunning, setOutreachRunning] = useState(false);
   const [riskAnalysisRunning, setRiskAnalysisRunning] = useState(false);
+  const [aiScanningRunning, setAiScanningRunning] = useState(false);
+  const [comprehensiveAnalysisRunning, setComprehensiveAnalysisRunning] = useState(false);
+  const [lastResults, setLastResults] = useState<{
+    aiScanning?: AILeadScanningResult;
+    riskAnalysis?: any;
+    comprehensive?: ComprehensiveAnalysisResult;
+  }>({});
 
   useEffect(() => {
     fetchAgentData();
@@ -114,7 +146,7 @@ export function AIAgentsManagement() {
     try {
       setOutreachRunning(true);
       const result = await apiService.triggerOutreach();
-      toast.success(`Outreach campaign completed! ${result.results.leads_contacted} leads contacted.`);
+      toast.success(`Outreach campaign completed! ${result.results.leads_contacted} leads contacted, ${result.results.ai_strategies_selected} AI strategies executed.`);
       fetchAgentData(); // Refresh data
     } catch (error) {
       console.error('Failed to trigger outreach:', error);
@@ -128,13 +160,44 @@ export function AIAgentsManagement() {
     try {
       setRiskAnalysisRunning(true);
       const result = await apiService.analyzeRisk();
-      toast.success(`Risk analysis completed! ${result.results.newly_at_risk} leads flagged at risk.`);
+      setLastResults(prev => ({ ...prev, riskAnalysis: result.results }));
+      toast.success(`Risk analysis completed! ${result.results.newly_at_risk} leads flagged at risk, ${result.results.aggressive_offers_sent} aggressive offers sent.`);
       fetchAgentData(); // Refresh data
     } catch (error) {
       console.error('Failed to analyze risk:', error);
       toast.error('Failed to analyze risk');
     } finally {
       setRiskAnalysisRunning(false);
+    }
+  };
+
+  const scanLeadsForOpportunities = async () => {
+    try {
+      setAiScanningRunning(true);
+      const result = await apiService.scanLeadsForOpportunities();
+      setLastResults(prev => ({ ...prev, aiScanning: result.results }));
+      toast.success(`AI lead scanning completed! ${result.results.opportunities_identified} opportunities found, ${result.results.proactive_messages_sent} messages sent.`);
+      fetchAgentData(); // Refresh data
+    } catch (error) {
+      console.error('Failed to scan leads:', error);
+      toast.error('Failed to scan leads for opportunities');
+    } finally {
+      setAiScanningRunning(false);
+    }
+  };
+
+  const runComprehensiveAnalysis = async () => {
+    try {
+      setComprehensiveAnalysisRunning(true);
+      const result = await apiService.runComprehensiveAnalysis();
+      setLastResults(prev => ({ ...prev, comprehensive: result.results }));
+      toast.success(`Comprehensive analysis completed! ${result.results.total_opportunities} opportunities identified, ${result.results.total_interventions} interventions executed.`);
+      fetchAgentData(); // Refresh data
+    } catch (error) {
+      console.error('Failed to run comprehensive analysis:', error);
+      toast.error('Failed to run comprehensive analysis');
+    } finally {
+      setComprehensiveAnalysisRunning(false);
     }
   };
 
@@ -167,7 +230,7 @@ export function AIAgentsManagement() {
   return (
     <div className="space-y-6">
       {/* Agent Status Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-gray-600">AI Agent Status</CardTitle>
@@ -212,12 +275,28 @@ export function AIAgentsManagement() {
             </p>
           </CardContent>
         </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-gray-600">AI Opportunities</CardTitle>
+            <Brain className="h-4 w-4 text-indigo-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-gray-900">
+              {lastResults.comprehensive ? lastResults.comprehensive.total_opportunities : 'N/A'}
+            </div>
+            <p className="text-xs text-gray-500 mt-1">
+              Opportunities identified by AI
+            </p>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Main Content */}
       <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="enhanced-ai">Enhanced AI</TabsTrigger>
           <TabsTrigger value="campaigns">Campaigns</TabsTrigger>
           <TabsTrigger value="performance">Performance</TabsTrigger>
           <TabsTrigger value="actions">Actions</TabsTrigger>
@@ -342,6 +421,145 @@ export function AIAgentsManagement() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="enhanced-ai" className="space-y-6">
+          {/* Enhanced AI Features */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Brain className="h-5 w-5" />
+                Enhanced AI Features
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* AI Lead Scanning */}
+                <div className="space-y-4 p-4 border rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <Search className="h-5 w-5 text-blue-600" />
+                    <h4 className="font-medium text-gray-900">AI-Powered Lead Scanning</h4>
+                  </div>
+                  <p className="text-sm text-gray-600">
+                    Actively scan all leads for engagement opportunities using AI decision making.
+                  </p>
+                  <Button
+                    onClick={scanLeadsForOpportunities}
+                    disabled={aiScanningRunning}
+                    className="w-full"
+                    variant="outline"
+                  >
+                    {aiScanningRunning ? (
+                      <>
+                        <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                        Scanning...
+                      </>
+                    ) : (
+                      <>
+                        <Search className="h-4 w-4 mr-2" />
+                        Scan for Opportunities
+                      </>
+                    )}
+                  </Button>
+                  
+                  {lastResults.aiScanning && (
+                    <div className="mt-3 p-3 bg-blue-50 rounded-lg">
+                      <h5 className="font-medium text-blue-900 mb-2">Last Scan Results</h5>
+                      <div className="text-sm text-blue-800 space-y-1">
+                        <div>• {lastResults.aiScanning.total_scanned} leads scanned</div>
+                        <div>• {lastResults.aiScanning.opportunities_identified} opportunities found</div>
+                        <div>• {lastResults.aiScanning.proactive_messages_sent} messages sent</div>
+                        <div>• {lastResults.aiScanning.leads_escalated} leads escalated</div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Comprehensive Analysis */}
+                <div className="space-y-4 p-4 border rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <Activity className="h-5 w-5 text-green-600" />
+                    <h4 className="font-medium text-gray-900">Comprehensive AI Analysis</h4>
+                  </div>
+                  <p className="text-sm text-gray-600">
+                    Run complete AI analysis combining lead scanning and risk assessment.
+                  </p>
+                  <Button
+                    onClick={runComprehensiveAnalysis}
+                    disabled={comprehensiveAnalysisRunning}
+                    className="w-full"
+                    variant="outline"
+                  >
+                    {comprehensiveAnalysisRunning ? (
+                      <>
+                        <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                        Analyzing...
+                      </>
+                    ) : (
+                      <>
+                        <Activity className="h-4 w-4 mr-2" />
+                        Run Comprehensive Analysis
+                      </>
+                    )}
+                  </Button>
+                  
+                  {lastResults.comprehensive && (
+                    <div className="mt-3 p-3 bg-green-50 rounded-lg">
+                      <h5 className="font-medium text-green-900 mb-2">Last Analysis Results</h5>
+                      <div className="text-sm text-green-800 space-y-1">
+                        <div>• {lastResults.comprehensive.total_opportunities} total opportunities</div>
+                        <div>• {lastResults.comprehensive.total_interventions} interventions executed</div>
+                        <div>• {lastResults.comprehensive.leads_escalated} leads escalated</div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Enhanced Risk Analysis Results */}
+          {lastResults.riskAnalysis && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Shield className="h-5 w-5" />
+                  Enhanced Risk Analysis Results
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <div className="text-center p-4 bg-red-50 rounded-lg">
+                    <div className="text-2xl font-bold text-red-600">
+                      {lastResults.riskAnalysis.total_analyzed}
+                    </div>
+                    <div className="text-sm text-red-800">Leads Analyzed</div>
+                  </div>
+                  
+                  <div className="text-center p-4 bg-orange-50 rounded-lg">
+                    <div className="text-2xl font-bold text-orange-600">
+                      {lastResults.riskAnalysis.newly_at_risk}
+                    </div>
+                    <div className="text-sm text-orange-800">Newly At Risk</div>
+                  </div>
+                  
+                  <div className="text-center p-4 bg-blue-50 rounded-lg">
+                    <div className="text-2xl font-bold text-blue-600">
+                      {lastResults.riskAnalysis.aggressive_offers_sent}
+                    </div>
+                    <div className="text-sm text-blue-800">Aggressive Offers Sent</div>
+                  </div>
+                  
+                  <div className="text-center p-4 bg-green-50 rounded-lg">
+                    <div className="text-2xl font-bold text-green-600">
+                      {lastResults.riskAnalysis.interventions_triggered}
+                    </div>
+                    <div className="text-sm text-green-800">Interventions Triggered</div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
 
         <TabsContent value="campaigns" className="space-y-6">
@@ -489,6 +707,10 @@ export function AIAgentsManagement() {
                     </div>
                     <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
                       <span className="text-sm text-green-800">Outreach Scheduler</span>
+                      <CheckCircle className="h-4 w-4 text-green-600" />
+                    </div>
+                    <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                      <span className="text-sm text-green-800">AI Lead Scanner</span>
                       <CheckCircle className="h-4 w-4 text-green-600" />
                     </div>
                   </div>

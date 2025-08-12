@@ -145,6 +145,56 @@ class ApiService {
     });
   }
 
+  async scanLeadsForOpportunities(): Promise<{
+    success: boolean;
+    scan_type: string;
+    results: {
+      total_scanned: number;
+      opportunities_identified: number;
+      proactive_messages_sent: number;
+      leads_escalated: number;
+    };
+    message: string;
+  }> {
+    return this.request('/agents/scan-leads', {
+      method: 'POST',
+      headers: {
+        'X-API-Key': AGENT_API_KEY
+      }
+    });
+  }
+
+  async runComprehensiveAnalysis(): Promise<{
+    success: boolean;
+    analysis_type: string;
+    results: {
+      ai_lead_scanning: {
+        total_scanned: number;
+        opportunities_identified: number;
+        proactive_messages_sent: number;
+        leads_escalated: number;
+      };
+      risk_analysis: {
+        total_analyzed: number;
+        newly_at_risk: number;
+        interventions_triggered: number;
+        aggressive_offers_sent: number;
+        moved_to_cold: number;
+      };
+      total_opportunities: number;
+      total_interventions: number;
+      leads_escalated: number;
+    };
+    message: string;
+  }> {
+    return this.request('/agents/run-comprehensive-analysis', {
+      method: 'POST',
+      headers: {
+        'X-API-Key': AGENT_API_KEY
+      }
+    });
+  }
+
   async getAgentStatus(): Promise<{ status: string; last_run: string }> {
     return this.request<{ status: string; last_run: string }>('/agents/status');
   }

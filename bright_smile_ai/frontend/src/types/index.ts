@@ -167,6 +167,7 @@ export interface OutreachResponse {
     leads_processed: number;
     leads_contacted: number;
     leads_skipped: number;
+    ai_strategies_selected: number;
   };
   message: string;
 }
@@ -178,7 +179,44 @@ export interface RiskAnalysisResponse {
     total_analyzed: number;
     newly_at_risk: number;
     interventions_triggered: number;
+    aggressive_offers_sent: number;
     moved_to_cold: number;
+  };
+  message: string;
+}
+
+export interface AILeadScanningResponse {
+  success: boolean;
+  scan_type: string;
+  results: {
+    total_scanned: number;
+    opportunities_identified: number;
+    proactive_messages_sent: number;
+    leads_escalated: number;
+  };
+  message: string;
+}
+
+export interface ComprehensiveAnalysisResponse {
+  success: boolean;
+  analysis_type: string;
+  results: {
+    ai_lead_scanning: {
+      total_scanned: number;
+      opportunities_identified: number;
+      proactive_messages_sent: number;
+      leads_escalated: number;
+    };
+    risk_analysis: {
+      total_analyzed: number;
+      newly_at_risk: number;
+      interventions_triggered: number;
+      aggressive_offers_sent: number;
+      moved_to_cold: number;
+    };
+    total_opportunities: number;
+    total_interventions: number;
+    leads_escalated: number;
   };
   message: string;
 } 

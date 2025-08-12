@@ -19,7 +19,10 @@ import {
   Target,
   Activity,
   BarChart3,
-  PieChart
+  PieChart,
+  Search,
+  Brain,
+  Zap
 } from 'lucide-react';
 import { DashboardOverview as DashboardOverviewType } from '@/types';
 
@@ -30,6 +33,8 @@ export default function DashboardPage() {
   const [quickActions, setQuickActions] = useState({
     outreachRunning: false,
     riskAnalysisRunning: false,
+    aiScanningRunning: false,
+    comprehensiveAnalysisRunning: false,
   });
 
   useEffect(() => {
@@ -63,7 +68,7 @@ export default function DashboardPage() {
     try {
       setQuickActions(prev => ({ ...prev, outreachRunning: true }));
       const result = await apiService.triggerOutreach();
-      toast.success(`Outreach campaign completed! ${result.results.leads_contacted} leads contacted.`);
+      toast.success(`Outreach campaign completed! ${result.results.leads_contacted} leads contacted, ${result.results.ai_strategies_selected} AI strategies executed.`);
     } catch (error) {
       console.error('Failed to trigger outreach:', error);
       toast.error('Failed to trigger outreach campaign');
@@ -76,12 +81,38 @@ export default function DashboardPage() {
     try {
       setQuickActions(prev => ({ ...prev, riskAnalysisRunning: true }));
       const result = await apiService.analyzeRisk();
-      toast.success(`Risk analysis completed! ${result.results.newly_at_risk} leads flagged at risk.`);
+      toast.success(`Risk analysis completed! ${result.results.newly_at_risk} leads flagged at risk, ${result.results.aggressive_offers_sent} aggressive offers sent.`);
     } catch (error) {
       console.error('Failed to analyze risk:', error);
       toast.error('Failed to analyze risk');
     } finally {
       setQuickActions(prev => ({ ...prev, riskAnalysisRunning: false }));
+    }
+  };
+
+  const scanLeadsForOpportunities = async () => {
+    try {
+      setQuickActions(prev => ({ ...prev, aiScanningRunning: true }));
+      const result = await apiService.scanLeadsForOpportunities();
+      toast.success(`AI lead scanning completed! ${result.results.opportunities_identified} opportunities found, ${result.results.proactive_messages_sent} messages sent.`);
+    } catch (error) {
+      console.error('Failed to scan leads:', error);
+      toast.error('Failed to scan leads for opportunities');
+    } finally {
+      setQuickActions(prev => ({ ...prev, aiScanningRunning: false }));
+    }
+  };
+
+  const runComprehensiveAnalysis = async () => {
+    try {
+      setQuickActions(prev => ({ ...prev, comprehensiveAnalysisRunning: true }));
+      const result = await apiService.runComprehensiveAnalysis();
+      toast.success(`Comprehensive analysis completed! ${result.results.total_opportunities} opportunities identified, ${result.results.total_interventions} interventions executed.`);
+    } catch (error) {
+      console.error('Failed to run comprehensive analysis:', error);
+      toast.error('Failed to run comprehensive analysis');
+    } finally {
+      setQuickActions(prev => ({ ...prev, comprehensiveAnalysisRunning: false }));
     }
   };
 
@@ -106,18 +137,80 @@ export default function DashboardPage() {
           </p>
         </div>
 
-        {/* Quick Actions */}
+        {/* Enhanced Quick Actions */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Activity className="h-5 w-5" />
-              Quick Actions
+              <Zap className="h-5 w-5 text-yellow-600" />
+              Quick AI Actions
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* AI Lead Scanning */}
               <div className="space-y-3">
-                <h4 className="font-medium text-gray-900">Proactive Outreach</h4>
+                <div className="flex items-center gap-2">
+                  <Search className="h-5 w-5 text-blue-600" />
+                  <h4 className="font-medium text-gray-900">AI Lead Scanning</h4>
+                </div>
+                <p className="text-sm text-gray-600">
+                  Scan all leads for engagement opportunities using AI decision making
+                </p>
+                <Button
+                  onClick={scanLeadsForOpportunities}
+                  disabled={quickActions.aiScanningRunning}
+                  variant="outline"
+                  className="w-full"
+                >
+                  {quickActions.aiScanningRunning ? (
+                    <>
+                      <Search className="h-4 w-4 mr-2 animate-spin" />
+                      Scanning...
+                    </>
+                  ) : (
+                    <>
+                      <Search className="h-4 w-4 mr-2" />
+                      Scan for Opportunities
+                    </>
+                  )}
+                </Button>
+              </div>
+
+              {/* Comprehensive Analysis */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <Activity className="h-5 w-5 text-green-600" />
+                  <h4 className="font-medium text-gray-900">Comprehensive Analysis</h4>
+                </div>
+                <p className="text-sm text-gray-600">
+                  Run complete AI analysis combining lead scanning and risk assessment
+                </p>
+                <Button
+                  onClick={runComprehensiveAnalysis}
+                  disabled={quickActions.comprehensiveAnalysisRunning}
+                  variant="outline"
+                  className="w-full"
+                >
+                  {quickActions.comprehensiveAnalysisRunning ? (
+                    <>
+                      <Activity className="h-4 w-4 mr-2 animate-spin" />
+                      Analyzing...
+                    </>
+                  ) : (
+                    <>
+                      <Activity className="h-4 w-4 mr-2" />
+                      Run Full Analysis
+                    </>
+                  )}
+                </Button>
+              </div>
+
+              {/* Proactive Outreach */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <MessageSquare className="h-5 w-5 text-purple-600" />
+                  <h4 className="font-medium text-gray-900">Proactive Outreach</h4>
+                </div>
                 <p className="text-sm text-gray-600">
                   Trigger AI outreach campaigns to re-engage cold leads
                 </p>
@@ -126,12 +219,26 @@ export default function DashboardPage() {
                   disabled={quickActions.outreachRunning}
                   className="w-full"
                 >
-                  {quickActions.outreachRunning ? 'Running...' : 'Trigger Outreach'}
+                  {quickActions.outreachRunning ? (
+                    <>
+                      <MessageSquare className="h-4 w-4 mr-2 animate-spin" />
+                      Running...
+                    </>
+                  ) : (
+                    <>
+                      <MessageSquare className="h-4 w-4 mr-2" />
+                      Trigger Outreach
+                    </>
+                  )}
                 </Button>
               </div>
 
+              {/* Risk Analysis */}
               <div className="space-y-3">
-                <h4 className="font-medium text-gray-900">Risk Analysis</h4>
+                <div className="flex items-center gap-2">
+                  <Target className="h-5 w-5 text-red-600" />
+                  <h4 className="font-medium text-gray-900">Risk Analysis</h4>
+                </div>
                 <p className="text-sm text-gray-600">
                   Analyze all active leads for risk factors and interventions
                 </p>
@@ -141,30 +248,17 @@ export default function DashboardPage() {
                   variant="outline"
                   className="w-full"
                 >
-                  {quickActions.riskAnalysisRunning ? 'Analyzing...' : 'Analyze Risk'}
-                </Button>
-              </div>
-
-              <div className="space-y-3">
-                <h4 className="font-medium text-gray-900">Test API</h4>
-                <p className="text-sm text-gray-600">
-                  Test the dashboard API endpoint
-                </p>
-                <Button 
-                  onClick={() => {
-                    console.log('Testing API...');
-                    apiService.getDashboardOverview().then(data => {
-                      console.log('API test successful:', data);
-                      toast.success('API test successful!');
-                    }).catch(error => {
-                      console.error('API test failed:', error);
-                      toast.error('API test failed: ' + error.message);
-                    });
-                  }}
-                  variant="outline" 
-                  className="w-full"
-                >
-                  Test API
+                  {quickActions.riskAnalysisRunning ? (
+                    <>
+                      <Target className="h-4 w-4 mr-2 animate-spin" />
+                      Analyzing...
+                    </>
+                  ) : (
+                    <>
+                      <Target className="h-4 w-4 mr-2" />
+                      Analyze Risk
+                    </>
+                  )}
                 </Button>
               </div>
             </div>

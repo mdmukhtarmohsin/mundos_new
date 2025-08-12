@@ -25,6 +25,47 @@ def verify_api_key(x_api_key: str = Header(...)) -> bool:
     return True
 
 
+@router.post("/scan-leads")
+async def scan_leads_for_opportunities(
+    db: Session = Depends(get_db),
+    _: bool = Depends(verify_api_key)
+):
+    """
+    AI-powered lead scanning to identify opportunities for proactive engagement.
+    This goes beyond risk analysis to find leads that could benefit from outreach.
+    
+    Protected endpoint requiring API key authentication.
+    """
+    
+    try:
+        # Initialize risk analyzer with engagement engine
+        engine = EngagementEngine(db)
+        risk_analyzer = RiskAnalyzer(db, engagement_engine=engine)
+        
+        # Run AI-powered lead scanning
+        results = await risk_analyzer.scan_all_leads_for_opportunities()
+        
+        return {
+            "success": True,
+            "scan_type": "ai_opportunity_scanning",
+            "results": results,
+            "message": f"AI lead scanning completed: {results['opportunities_identified']} opportunities found, {results['proactive_messages_sent']} messages sent, {results['leads_escalated']} escalated"
+        }
+    
+    except Exception as e:
+        logger = SystemLogger(db)
+        await logger.log_error(
+            error_type="ai_lead_scanning",
+            error_message=str(e),
+            additional_context="AI-powered lead scanning failed"
+        )
+        
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to run AI lead scanning: {str(e)}"
+        )
+
+
 @router.post("/trigger-outreach")
 async def trigger_proactive_outreach(
     db: Session = Depends(get_db),
@@ -48,7 +89,7 @@ async def trigger_proactive_outreach(
             "success": True,
             "campaign_type": "proactive_outreach",
             "results": results,
-            "message": f"Campaign completed: {results['leads_contacted']} leads contacted, {results['leads_skipped']} skipped"
+            "message": f"Campaign completed: {results['leads_contacted']} leads contacted, {results['leads_skipped']} skipped, {results['ai_strategies_selected']} AI strategies executed"
         }
     
     except Exception as e:
@@ -89,7 +130,7 @@ async def trigger_risk_analysis(
             "success": True,
             "analysis_type": "risk_assessment",
             "results": results,
-            "message": f"Risk analysis completed: {results['newly_at_risk']} leads flagged at risk, {results['interventions_triggered']} interventions sent"
+            "message": f"Risk analysis completed: {results['newly_at_risk']} leads flagged at risk, {results['interventions_triggered']} interventions sent, {results['aggressive_offers_sent']} aggressive offers sent"
         }
     
     except Exception as e:
@@ -103,6 +144,57 @@ async def trigger_risk_analysis(
         raise HTTPException(
             status_code=500,
             detail=f"Failed to run risk analysis: {str(e)}"
+        )
+
+
+@router.post("/run-comprehensive-analysis")
+async def run_comprehensive_analysis(
+    db: Session = Depends(get_db),
+    _: bool = Depends(verify_api_key)
+):
+    """
+    Run a comprehensive analysis combining AI lead scanning and risk analysis.
+    This is the main endpoint for the complete AI-powered lead management system.
+    
+    Protected endpoint requiring API key authentication.
+    """
+    
+    try:
+        # Initialize services
+        engine = EngagementEngine(db)
+        risk_analyzer = RiskAnalyzer(db, engagement_engine=engine)
+        
+        # Run comprehensive analysis
+        scan_results = await risk_analyzer.scan_all_leads_for_opportunities()
+        risk_results = await risk_analyzer.analyze_all_active_leads()
+        
+        # Combine results
+        comprehensive_results = {
+            "ai_lead_scanning": scan_results,
+            "risk_analysis": risk_results,
+            "total_opportunities": scan_results["opportunities_identified"] + risk_results["aggressive_offers_sent"],
+            "total_interventions": scan_results["proactive_messages_sent"] + risk_results["interventions_triggered"],
+            "leads_escalated": scan_results["leads_escalated"]
+        }
+        
+        return {
+            "success": True,
+            "analysis_type": "comprehensive_ai_analysis",
+            "results": comprehensive_results,
+            "message": f"Comprehensive analysis completed: {comprehensive_results['total_opportunities']} opportunities identified, {comprehensive_results['total_interventions']} interventions executed"
+        }
+    
+    except Exception as e:
+        logger = SystemLogger(db)
+        await logger.log_error(
+            error_type="comprehensive_analysis",
+            error_message=str(e),
+            additional_context="Comprehensive AI analysis failed"
+        )
+        
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to run comprehensive analysis: {str(e)}"
         )
 
 
@@ -155,12 +247,16 @@ def get_agent_status(
                     "description": "Responds to incoming lead messages in real-time"
                 },
                 "proactive_outreach_agent": {
-                    "status": "scheduled",
-                    "description": "Re-engages cold leads based on qualification rules"
+                    "status": "active",
+                    "description": "AI-powered re-engagement of cold leads with intelligent strategy selection"
                 },
                 "risk_analyzer": {
-                    "status": "scheduled",
-                    "description": "Identifies at-risk leads and triggers interventions"
+                    "status": "active",
+                    "description": "AI-powered risk assessment with aggressive retention offers"
+                },
+                "ai_lead_scanner": {
+                    "status": "active",
+                    "description": "AI-powered opportunity identification for proactive engagement"
                 }
             }
         }

@@ -62,6 +62,16 @@ async def lifespan(app: FastAPI):
             max_instances=1
         )
         
+        # Schedule AI-powered lead scanning job
+        scheduler.add_job(
+            func=run_ai_lead_scanning,
+            trigger=IntervalTrigger(hours=2),  # Run every 2 hours
+            id="ai_lead_scanning_job",
+            name="AI-powered lead scanning for opportunities",
+            replace_existing=True,
+            max_instances=1
+        )
+        
         # Schedule a daily outreach campaign (optional - can also be manually triggered)
         scheduler.add_job(
             func=run_daily_outreach_check,
@@ -285,6 +295,52 @@ async def run_risk_analysis():
                 error_type="scheduled_risk_analysis",
                 error_message=str(e),
                 additional_context="Scheduled background risk analysis failed"
+            )
+            db.close()
+        except:
+            pass
+
+
+async def run_ai_lead_scanning():
+    """
+    Background job to run AI-powered lead scanning.
+    This identifies opportunities for proactive engagement.
+    """
+    try:
+        logger.info("🔍 Starting AI-powered lead scanning...")
+        
+        db = next(get_db())
+        engine = EngagementEngine(db)
+        risk_analyzer = RiskAnalyzer(db, engagement_engine=engine)
+        
+        # Run AI-powered lead scanning
+        results = await risk_analyzer.scan_all_leads_for_opportunities()
+        
+        logger.info(
+            f"✅ AI-powered lead scanning completed: {results['opportunities_identified']} opportunities found, "
+            f"{results['proactive_messages_sent']} messages sent, {results['leads_escalated']} escalated"
+        )
+        
+        # Log the scan
+        system_logger = SystemLogger(db)
+        await system_logger.log_event(
+            event_type="ai_lead_scanning",
+            details=f"AI-powered lead scanning completed. {results['opportunities_identified']} opportunities found.",
+            severity="info"
+        )
+        
+        db.close()
+        
+    except Exception as e:
+        logger.error(f"❌ AI-powered lead scanning failed: {e}")
+        
+        try:
+            db = next(get_db())
+            system_logger = SystemLogger(db)
+            await system_logger.log_error(
+                error_type="ai_lead_scanning",
+                error_message=str(e),
+                additional_context="Scheduled AI lead scanning failed"
             )
             db.close()
         except:

@@ -1,6 +1,7 @@
 """
 EngagementEngine Service - Core AI orchestration using LangGraph
 Handles both Instant Reply Agent and Proactive Outreach Agent workflows
+Enhanced with AI-powered decision making for lead outreach
 """
 import json
 from datetime import datetime, timedelta
@@ -25,7 +26,7 @@ from app.core.prompts import (
     get_predictive_intervention_prompt,
     get_human_handoff_prompt
 )
-from app.core.utils import analyze_sentiment, format_conversation_history
+from app.core.utils import analyze_sentiment, format_conversation_history, extract_service_keywords
 from app.services.asset_generator import AssetGenerator
 from app.services.system_logger import SystemLogger
 
@@ -45,6 +46,7 @@ class EngagementEngine:
     """
     Core service that orchestrates AI-driven lead engagement.
     Implements both the Instant Reply Agent and Proactive Outreach Agent workflows.
+    Enhanced with AI-powered decision making for lead outreach.
     """
     
     def __init__(self, db: Session):
@@ -98,7 +100,7 @@ class EngagementEngine:
         
         # Compile the graph
         return workflow.compile()
-    
+
     # ========================================================================
     # LangGraph Node Implementations
     # ========================================================================
@@ -240,8 +242,6 @@ class EngagementEngine:
         
         # Get relevant testimonials
         conversation_text = " ".join([msg.content for msg in state["conversation_history"]])
-        from app.core.utils import extract_service_keywords
-        
         service_keywords = extract_service_keywords(conversation_text)
         testimonials = []
         
@@ -359,13 +359,13 @@ class EngagementEngine:
             }
     
     # ========================================================================
-    # Public Methods - Proactive Outreach Agent
+    # Public Methods - Proactive Outreach Agent (Enhanced with AI Decision Making)
     # ========================================================================
     
     async def run_proactive_outreach_campaign(self) -> Dict[str, int]:
         """
         Run the proactive outreach campaign for cold leads.
-        This implements the qualification gauntlet and strategy selection.
+        Enhanced with AI-powered decision making for strategy selection.
         """
         # Get all cold leads
         cold_leads = self.db.query(Lead).filter(
@@ -376,22 +376,34 @@ class EngagementEngine:
         stats = {
             "leads_processed": len(cold_leads),
             "leads_contacted": 0,
-            "leads_skipped": 0
+            "leads_skipped": 0,
+            "ai_strategies_selected": 0
         }
         
         for lead in cold_leads:
             try:
-                # Run qualification gauntlet
-                if await self._qualify_lead_for_outreach(lead):
-                    success = await self._run_outreach_play(lead)
+                # Run AI-powered qualification and strategy selection
+                qualification_result = await self._ai_qualify_and_strategize_lead(lead)
+                
+                if qualification_result["should_contact"]:
+                    # Execute the AI-selected strategy
+                    success = await self._execute_ai_outreach_strategy(lead, qualification_result)
                     if success:
                         stats["leads_contacted"] += 1
+                        stats["ai_strategies_selected"] += 1
                         # Update lead status
                         lead.status = LeadStatus.CONTACTED
                     else:
                         stats["leads_skipped"] += 1
                 else:
                     stats["leads_skipped"] += 1
+                    # Log why lead was skipped
+                    await self.logger.log_event(
+                        event_type="outreach_lead_skipped",
+                        details=f"Lead skipped: {qualification_result['reasoning']}",
+                        lead_id=lead.id,
+                        severity="info"
+                    )
             
             except Exception as e:
                 await self.logger.log_error(
@@ -413,117 +425,199 @@ class EngagementEngine:
         
         return stats
     
-    async def _qualify_lead_for_outreach(self, lead: Lead) -> bool:
+    async def _ai_qualify_and_strategize_lead(self, lead: Lead) -> Dict[str, Any]:
         """
-        Run the qualification gauntlet for a cold lead.
-        
-        Returns:
-            True if lead qualifies for outreach
-        """
-        # Check do_not_contact flag
-        if lead.do_not_contact:
-            return False
-        
-        # Check if last message was from human staff
-        last_message = self.db.query(Message).filter(
-            Message.lead_id == lead.id
-        ).order_by(Message.created_at.desc()).first()
-        
-        if last_message and last_message.sender == SenderType.HUMAN:
-            return False
-        
-        # Check cooldown period
-        if lead.last_contact_at:
-            days_since_contact = (datetime.utcnow() - lead.last_contact_at).days
-            if days_since_contact < settings.cold_lead_cooldown_days:
-                return False
-        
-        return True
-    
-    async def _run_outreach_play(self, lead: Lead) -> bool:
-        """
-        Select and execute an outreach strategy for a qualified cold lead.
+        Use AI to qualify a cold lead and select the best outreach strategy.
+        This replaces the simple rule-based qualification with intelligent decision making.
         
         Args:
-            lead: The qualified cold lead
+            lead: The cold lead to analyze
             
         Returns:
-            True if outreach was sent successfully
+            Dictionary containing qualification and strategy details
         """
-        # Calculate days since lead went cold
-        days_cold = (datetime.utcnow() - lead.last_contact_at).days \
-                   if lead.last_contact_at else 999
+        # Get lead context
+        days_cold = (datetime.utcnow() - lead.last_contact_at).days if lead.last_contact_at else 999
+        service_keywords = extract_service_keywords(lead.initial_inquiry or "")
         
-        # Select strategy based on time elapsed
+        # Get available offers and testimonials
+        relevant_offers = []
+        if service_keywords:
+            for keyword in service_keywords:
+                offers = self.db.query(Offer).filter(
+                    Offer.valid_for_service.ilike(f"%{keyword}%"),
+                    Offer.is_active == True
+                ).all()
+                relevant_offers.extend(offers)
+        
+        if not relevant_offers:
+            relevant_offers = self.db.query(Offer).filter(Offer.is_active == True).limit(3).all()
+        
+        # Get relevant testimonials
+        relevant_testimonials = []
+        if service_keywords:
+            for keyword in service_keywords:
+                testimonial = self.db.query(Testimonial).filter(
+                    Testimonial.service_category.ilike(f"%{keyword}%")
+                ).first()
+                if testimonial:
+                    relevant_testimonials.append(testimonial)
+        
+        if not relevant_testimonials:
+            relevant_testimonials = self.db.query(Testimonial).filter(
+                Testimonial.service_category == "General"
+            ).limit(2).all()
+        
+        # AI prompt for qualification and strategy selection
+        strategy_prompt = f"""
+You are an AI marketing expert for a dental practice. Analyze this cold lead and determine the best outreach strategy.
+
+LEAD INFORMATION:
+- Name: {lead.name}
+- Initial Inquiry: {lead.initial_inquiry or "Not specified"}
+- Days Since Going Cold: {days_cold}
+- Service Interest: {', '.join(service_keywords) if service_keywords else "General dental care"}
+
+AVAILABLE OFFERS:
+{chr(10).join([f"- {offer.offer_title}: {offer.description}" for offer in relevant_offers]) if relevant_offers else "No specific offers available"}
+
+AVAILABLE TESTIMONIALS:
+{chr(10).join([f"- {testimonial.service_category}: \"{testimonial.snippet_text}\"" for testimonial in relevant_testimonials]) if relevant_testimonials else "No specific testimonials available"}
+
+ANALYSIS TASK:
+1. Should this lead be contacted? Consider their original interest, time elapsed, and available resources
+2. If yes, what's the best outreach strategy?
+3. What specific offer or testimonial should be featured?
+
+RESPONSE FORMAT (JSON):
+{{
+    "should_contact": true/false,
+    "reasoning": "Detailed explanation of decision",
+    "strategy": "gentle_nudge", "social_proof", "incentive_offer", or "custom",
+    "custom_message": "Custom message if strategy is 'custom', otherwise null",
+    "featured_offer": "Specific offer to highlight, if applicable",
+    "featured_testimonial": "Specific testimonial to use, if applicable",
+    "urgency_level": "low", "medium", or "high",
+    "next_best_action": "Specific action to take"
+}}
+
+Respond with ONLY valid JSON.
+"""
+        
+        try:
+            # Get AI strategy recommendation
+            response = await self.llm.ainvoke([SystemMessage(content=strategy_prompt)])
+            
+            # Parse AI response
+            strategy_result = json.loads(response.content.strip())
+            
+            return strategy_result
+            
+        except Exception as e:
+            # Fallback to rule-based strategy selection
+            return self._fallback_strategy_selection(lead, days_cold, relevant_offers, relevant_testimonials)
+    
+    def _fallback_strategy_selection(self, lead: Lead, days_cold: int, 
+                                   relevant_offers: List[Offer], 
+                                   relevant_testimonials: List[Testimonial]) -> Dict[str, Any]:
+        """Fallback rule-based strategy selection if AI fails"""
+        
+        # Simple rule-based logic
         if days_cold <= settings.gentle_nudge_days + 16:  # 14-30 days
             strategy = "gentle_nudge"
-            context = {
-                "original_inquiry": lead.initial_inquiry or "dental services",
-                "days_cold": days_cold,
-                "original_contact_date": lead.created_at.strftime("%B %d")
-            }
-        
         elif days_cold <= settings.social_proof_days + 15:  # 30-45 days
             strategy = "social_proof"
-            
-            # Get relevant testimonial
-            service_keywords = extract_service_keywords(lead.initial_inquiry or "")
-            testimonial = None
-            
-            if service_keywords:
-                testimonial = self.db.query(Testimonial).filter(
-                    Testimonial.service_category.ilike(f"%{service_keywords[0]}%")
-                ).first()
-            
-            if not testimonial:
-                testimonial = self.db.query(Testimonial).filter(
-                    Testimonial.service_category == "General"
-                ).first()
-            
-            context = {
-                "service_interest": lead.initial_inquiry or "dental care",
-                "days_cold": days_cold,
-                "testimonial": testimonial.snippet_text if testimonial else "Great experience with our practice!",
-                "original_inquiry": lead.initial_inquiry or "dental services"
-            }
-        
         else:  # 45+ days
             strategy = "incentive_offer"
-            
-            # Get relevant offer
-            offer = self.db.query(Offer).filter(
-                Offer.is_active == True
-            ).first()
-            
-            context = {
-                "service_interest": lead.initial_inquiry or "dental care",
-                "days_cold": days_cold,
-                "offer_details": f"{offer.offer_title}: {offer.description}" if offer else "Special consultation discount",
-                "original_inquiry": lead.initial_inquiry or "dental services"
-            }
         
-        # Generate message using appropriate prompt
-        prompt = get_cold_lead_prompt(strategy, lead.name, **context)
-        response = await self.llm.ainvoke([SystemMessage(content=prompt)])
-        
-        # Save the outreach message
-        message = Message(
-            lead_id=lead.id,
-            sender=SenderType.AI,
-            content=response.content
-        )
-        
-        self.db.add(message)
-        lead.last_contact_at = datetime.utcnow()
-        
-        await self.logger.log_event(
-            event_type=f"proactive_outreach_{strategy}",
-            details=f"Sent {strategy} message after {days_cold} days",
-            lead_id=lead.id
-        )
-        
-        return True
+        return {
+            "should_contact": True,
+            "reasoning": f"Rule-based strategy selection: {days_cold} days cold",
+            "strategy": strategy,
+            "custom_message": None,
+            "featured_offer": relevant_offers[0].offer_title if relevant_offers else None,
+            "featured_testimonial": relevant_testimonials[0].snippet_text if relevant_testimonials else None,
+            "urgency_level": "high" if days_cold > 60 else "medium",
+            "next_best_action": f"Execute {strategy} strategy"
+        }
     
+    async def _execute_ai_outreach_strategy(self, lead: Lead, strategy_result: Dict[str, Any]) -> bool:
+        """
+        Execute the AI-selected outreach strategy for a qualified lead.
+        
+        Args:
+            lead: The qualified lead
+            strategy_result: AI strategy recommendation
+            
+        Returns:
+            True if outreach was executed successfully
+        """
+        try:
+            strategy = strategy_result["strategy"]
+            
+            if strategy == "custom" and strategy_result.get("custom_message"):
+                # Use AI-generated custom message
+                message_content = strategy_result["custom_message"]
+            else:
+                # Use standard strategy prompts
+                context = self._build_strategy_context(lead, strategy_result)
+                prompt = get_cold_lead_prompt(strategy, lead.name, **context)
+                response = await self.llm.ainvoke([SystemMessage(content=prompt)])
+                message_content = response.content
+            
+            # Save the outreach message
+            message = Message(
+                lead_id=lead.id,
+                sender=SenderType.AI,
+                content=message_content,
+                intent_classification="proactive_outreach"
+            )
+            
+            self.db.add(message)
+            lead.last_contact_at = datetime.utcnow()
+            
+            # Log the AI strategy execution
+            await self.logger.log_event(
+                event_type=f"ai_outreach_{strategy}",
+                details=f"AI executed {strategy} strategy: {strategy_result['reasoning']}",
+                lead_id=lead.id,
+                severity="info"
+            )
+            
+            return True
+            
+        except Exception as e:
+            await self.logger.log_error(
+                error_type="ai_strategy_execution",
+                error_message=str(e),
+                lead_id=lead.id,
+                additional_context=f"Strategy: {strategy_result.get('strategy', 'unknown')}"
+            )
+            return False
+    
+    def _build_strategy_context(self, lead: Lead, strategy_result: Dict[str, Any]) -> Dict[str, Any]:
+        """Build context for strategy execution"""
+        
+        days_cold = (datetime.utcnow() - lead.last_contact_at).days if lead.last_contact_at else 999
+        
+        context = {
+            "original_inquiry": lead.initial_inquiry or "dental services",
+            "days_cold": days_cold,
+            "original_contact_date": lead.created_at.strftime("%B %d")
+        }
+        
+        # Add strategy-specific context
+        if strategy_result.get("featured_offer"):
+            context["offer_details"] = strategy_result["featured_offer"]
+        
+        if strategy_result.get("featured_testimonial"):
+            context["testimonial"] = strategy_result["featured_testimonial"]
+        
+        if strategy_result.get("urgency_level"):
+            context["urgency_level"] = strategy_result["urgency_level"]
+        
+        return context
+
     # ========================================================================
     # Public Methods - Predictive Intervention
     # ========================================================================
@@ -561,7 +655,8 @@ class EngagementEngine:
             message = Message(
                 lead_id=lead.id,
                 sender=SenderType.AI,
-                content=response.content
+                content=response.content,
+                intent_classification="predictive_intervention"
             )
             
             self.db.add(message)
