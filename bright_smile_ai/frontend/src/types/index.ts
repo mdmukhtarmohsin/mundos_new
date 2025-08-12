@@ -19,6 +19,8 @@ export interface Message {
   sender: 'lead' | 'ai' | 'human';
   content: string;
   created_at: string;
+  intent_classification?: string;
+  confidence_score?: number;
 }
 
 export interface Offer {
@@ -35,17 +37,7 @@ export interface Testimonial {
   snippet_text: string;
 }
 
-export interface FinancialExplainer {
-  id: number;
-  lead_id: number;
-  secure_url_token: string;
-  is_accessed: boolean;
-  procedure_name: string;
-  total_cost: number;
-  estimated_insurance: number;
-  payment_options: Record<string, number>;
-  created_at: string;
-}
+
 
 export interface SystemEvent {
   id: number;
@@ -71,8 +63,8 @@ export interface DashboardOverview {
     response_rate: number;
   };
   asset_metrics: {
-    financial_explainers_created: number;
-    financial_explainers_accessed: number;
+    total_assets_created: number;
+    total_assets_accessed: number;
     access_rate: number;
   };
   system_health: {
@@ -125,7 +117,7 @@ export interface RiskAnalysis {
 export interface AIPerformance {
   total_conversations: number;
   successful_handoffs: number;
-  financial_explainer_offers: number;
+  total_offers_made: number;
   average_sentiment_improvement: number;
 }
 
@@ -138,10 +130,9 @@ export interface RecentActivity {
 export interface CampaignHistory {
   id: number;
   campaign_type: string;
-  leads_contacted: number;
-  responses_received: number;
-  conversions: number;
+  details: string;
   created_at: string;
+  success: boolean;
 }
 
 export interface PerformanceMetrics {

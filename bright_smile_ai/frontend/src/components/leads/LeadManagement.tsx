@@ -481,22 +481,43 @@ export function LeadManagement({ onLeadSelect }: LeadManagementProps) {
                         }`}
                       >
                         <div
-                          className={`max-w-xs rounded-lg px-3 py-2 ${
+                          className={`max-w-xs lg:max-w-md rounded-lg px-4 py-3 shadow-sm ${
                             message.sender === 'lead'
-                              ? 'bg-gray-100 text-gray-900'
+                              ? 'bg-white border border-gray-200 text-gray-900'
                               : message.sender === 'ai'
-                              ? 'bg-blue-100 text-blue-900'
-                              : 'bg-green-100 text-green-900'
+                              ? 'bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 text-blue-900'
+                              : 'bg-gradient-to-r from-green-50 to-green-100 border border-green-200 text-green-900'
                           }`}
                         >
-                          <div className="text-xs text-gray-500 mb-1">
-                            {message.sender === 'lead' ? 'Patient' : 
-                             message.sender === 'ai' ? 'AI Assistant' : 'Staff Member'}
+                          <div className="flex items-center gap-2 mb-2">
+                            <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium ${
+                              message.sender === 'lead'
+                                ? 'bg-gray-500 text-white'
+                                : message.sender === 'ai'
+                                ? 'bg-blue-500 text-white'
+                                : 'bg-green-500 text-white'
+                            }`}>
+                              {message.sender === 'lead' ? 'P' : 
+                               message.sender === 'ai' ? 'AI' : 'S'}
+                            </div>
+                            <div className="text-xs font-medium text-gray-600">
+                              {message.sender === 'lead' ? 'Patient' : 
+                               message.sender === 'ai' ? 'AI Assistant' : 'Staff Member'}
+                            </div>
+                            <div className="text-xs text-gray-400 ml-auto">
+                              {formatDate(message.created_at)}
+                            </div>
                           </div>
-                          <div>{message.content}</div>
-                          <div className="text-xs text-gray-500 mt-1">
-                            {formatDate(message.created_at)}
+                          <div className="text-sm leading-relaxed whitespace-pre-wrap">
+                            {message.content}
                           </div>
+                          {message.intent_classification && (
+                            <div className="mt-2 pt-2 border-t border-gray-100">
+                              <span className="text-xs text-gray-500">
+                                Intent: {message.intent_classification.replace(/_/g, ' ')}
+                              </span>
+                            </div>
+                          )}
                         </div>
                       </div>
                     ))}
@@ -589,7 +610,7 @@ export function LeadManagement({ onLeadSelect }: LeadManagementProps) {
                     <CardContent className="space-y-3">
                       <Button className="w-full" variant="outline">
                         <DollarSign className="h-4 w-4 mr-2" />
-                        Generate Financial Explainer
+                        Generate Report
                       </Button>
                       <Button className="w-full" variant="outline">
                         <TrendingUp className="h-4 w-4 mr-2" />

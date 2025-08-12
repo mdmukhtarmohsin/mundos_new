@@ -11,7 +11,6 @@ import {
   CampaignHistory,
   PerformanceMetrics,
   ConversationStats,
-  FinancialExplainer,
   OutreachResponse,
   RiskAnalysisResponse,
 } from '@/types';
@@ -195,8 +194,31 @@ class ApiService {
     });
   }
 
-  async getAgentStatus(): Promise<{ status: string; last_run: string }> {
-    return this.request<{ status: string; last_run: string }>('/agents/status');
+  async getAgentStatus(): Promise<{
+    system_health: {
+      status: string;
+      total_events: number;
+      error_events: number;
+      ai_interactions: number;
+    };
+    risk_analysis: {
+      total_active_leads: number;
+      high_risk_count: number;
+    };
+    recent_activity: Array<{
+      event_type: string;
+      details: string;
+      created_at: string;
+      severity: string;
+    }>;
+    agents: {
+      [key: string]: {
+        status: string;
+        description: string;
+      };
+    };
+  }> {
+    return this.request('/agents/status');
   }
 
   async testInstantReply(leadId: number, message: string): Promise<Message> {
@@ -210,7 +232,8 @@ class ApiService {
   }
 
   async getCampaignHistory(): Promise<CampaignHistory[]> {
-    return this.request<CampaignHistory[]>('/agents/campaign-history');
+    const response = await this.request<{ campaigns: CampaignHistory[]; total_found: number }>('/agents/campaign-history');
+    return response.campaigns || [];
   }
 
   async getPerformanceMetrics(): Promise<PerformanceMetrics> {
@@ -246,40 +269,7 @@ class ApiService {
     return response.blob();
   }
 
-  // Financial Explainer
-  async getFinancialExplainer(token: string): Promise<FinancialExplainer> {
-    return this.request<FinancialExplainer>(`/financial-explainer/${token}`);
-  }
 
-  async getFinancialExplainerHTML(token: string): Promise<string> {
-    const response = await fetch(`${API_BASE_URL}/financial-explainer/${token}/html`);
-    if (!response.ok) {
-      throw new Error('Failed to fetch financial explainer HTML');
-    }
-    return response.text();
-  }
-
-  async getFinancialExplainerStats(): Promise<{
-    total_generated: number;
-    accessed_count: number;
-    conversion_rate: number;
-  }> {
-    return this.request<{
-      total_generated: number;
-      accessed_count: number;
-      conversion_rate: number;
-    }>('/financial-explainer/admin/stats');
-  }
-
-  async getFinancialExplainerAdmin(id: number): Promise<FinancialExplainer> {
-    return this.request<FinancialExplainer>(`/financial-explainer/admin/${id}`);
-  }
-
-  async deleteFinancialExplainer(id: number): Promise<void> {
-    return this.request<void>(`/financial-explainer/admin/${id}`, {
-      method: 'DELETE',
-    });
-  }
 }
 
 export const apiService = new ApiService(); 

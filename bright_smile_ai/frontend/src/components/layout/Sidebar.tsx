@@ -7,27 +7,17 @@ import { cn } from '@/lib/utils';
 import {
   LayoutDashboard,
   Users,
-  MessageSquare,
   Bot,
   BarChart3,
-  Settings,
   Menu,
   X,
-  TrendingUp,
-  AlertTriangle,
-  DollarSign,
-  FileText,
 } from 'lucide-react';
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
   { name: 'Leads', href: '/leads', icon: Users },
-  { name: 'Conversations', href: '/conversations', icon: MessageSquare },
   { name: 'AI Agents', href: '/ai-agents', icon: Bot },
   { name: 'Analytics', href: '/analytics', icon: BarChart3 },
-  { name: 'Financial Explainers', href: '/financial-explainers', icon: DollarSign },
-  { name: 'Reports', href: '/reports', icon: FileText },
-  { name: 'Settings', href: '/settings', icon: Settings },
 ];
 
 export function Sidebar() {
@@ -90,29 +80,7 @@ export function Sidebar() {
             })}
           </nav>
 
-          {/* Quick Stats */}
-          <div className="px-4 py-4 border-t border-gray-200">
-            <div className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-3">
-              Quick Stats
-            </div>
-            <div className="space-y-2">
-              <div className="flex items-center text-sm">
-                <TrendingUp className="h-4 w-4 text-green-500 mr-2" />
-                <span className="text-gray-600">Leads Active</span>
-                <span className="ml-auto font-semibold text-gray-900">24</span>
-              </div>
-              <div className="flex items-center text-sm">
-                <AlertTriangle className="h-4 w-4 text-yellow-500 mr-2" />
-                <span className="text-gray-600">At Risk</span>
-                <span className="ml-auto font-semibold text-gray-900">3</span>
-              </div>
-              <div className="flex items-center text-sm">
-                <DollarSign className="h-4 w-4 text-blue-500 mr-2" />
-                <span className="text-gray-600">Revenue</span>
-                <span className="ml-auto font-semibold text-gray-900">$12.5K</span>
-              </div>
-            </div>
-          </div>
+
         </div>
       </div>
 

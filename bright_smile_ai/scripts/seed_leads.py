@@ -3,7 +3,7 @@ Seed script for creating sample leads and messages
 """
 import sys
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from faker import Faker
 
 # Add the parent directory to the path so we can import our app modules
@@ -157,7 +157,7 @@ def create_sample_leads():
             
             # Create messages if any
             if "messages" in scenario:
-                base_time = datetime.utcnow() - timedelta(days=fake.random_int(1, 30))
+                base_time = datetime.now(timezone.utc) - timedelta(days=fake.random_int(1, 30))
                 
                 for sender_type, content, minutes_offset in scenario["messages"]:
                     message_time = base_time + timedelta(minutes=minutes_offset)

@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { formatCurrency, formatDate } from '@/lib/utils';
@@ -12,14 +13,76 @@ import {
   Bot,
   MessageSquare,
   FileText,
+  Activity,
+  CheckCircle,
+  XCircle,
+  Play,
+  Search,
+  Shield
 } from 'lucide-react';
 import { DashboardOverview as DashboardOverviewType } from '@/types';
+import { apiService } from '@/lib/api';
 
 interface DashboardOverviewProps {
   data: DashboardOverviewType;
 }
 
+interface ActionResult {
+  type: 'outreach' | 'risk' | 'scan';
+  success: boolean;
+  message: string;
+  results?: any;
+  timestamp: string;
+}
+
 export function DashboardOverview({ data }: DashboardOverviewProps) {
+  const [recentActions, setRecentActions] = useState<ActionResult[]>([]);
+  const [agentStatus, setAgentStatus] = useState<any>(null);
+
+  useEffect(() => {
+    fetchRecentData();
+    
+    // Listen for AI action completion events
+    const handleAIActionCompleted = () => {
+      fetchRecentData();
+    };
+    
+    window.addEventListener('ai-action-completed', handleAIActionCompleted);
+    
+    return () => {
+      window.removeEventListener('ai-action-completed', handleAIActionCompleted);
+    };
+  }, []);
+
+  const fetchRecentData = async () => {
+    try {
+      const [status] = await Promise.all([
+        apiService.getAgentStatus(),
+      ]);
+      setAgentStatus(status);
+    } catch (error) {
+      console.error('Failed to fetch recent data:', error);
+    }
+  };
+
+  const getActionIcon = (type: string) => {
+    switch (type) {
+      case 'outreach': return Play;
+      case 'risk': return AlertTriangle;
+      case 'scan': return Search;
+      default: return Activity;
+    }
+  };
+
+  const getActionTitle = (type: string) => {
+    switch (type) {
+      case 'outreach': return 'Proactive Outreach';
+      case 'risk': return 'Risk Analysis';
+      case 'scan': return 'Lead Scanning';
+      default: return 'AI Action';
+    }
+  };
+
   const metrics = [
     {
       title: 'Total Leads',
@@ -62,12 +125,12 @@ export function DashboardOverview({ data }: DashboardOverviewProps) {
       subtitle: `AI response success rate`,
     },
     {
-      title: 'Financial Explainers',
-      value: data.asset_metrics.financial_explainers_created,
-      icon: FileText,
+      title: 'System Health',
+      value: data.system_health.status,
+      icon: AlertTriangle,
       color: 'text-orange-600',
       bgColor: 'bg-orange-50',
-      subtitle: `Total explainers created`,
+      subtitle: `System status`,
     },
   ];
 
@@ -92,6 +155,89 @@ export function DashboardOverview({ data }: DashboardOverviewProps) {
           </Card>
         ))}
       </div>
+
+      {/* AI Activity Section */}
+      {agentStatus && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Recent AI Activity */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Bot className="h-5 w-5" />
+                Recent AI Activity
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {agentStatus.recent_activity && agentStatus.recent_activity.length > 0 ? (
+                  agentStatus.recent_activity.slice(0, 3).map((activity: any, index: number) => (
+                    <div key={index} className="border rounded-lg p-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="font-medium text-gray-900 text-sm">
+                          {activity.event_type.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {formatDate(activity.created_at)}
+                        </div>
+                      </div>
+                      <p className="text-xs text-gray-600 line-clamp-2">{activity.details}</p>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-4 text-gray-500">
+                    <p className="text-sm">No recent AI activity</p>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* AI System Status */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Activity className="h-5 w-5" />
+                AI System Status
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-gray-600">System Health</span>
+                  <Badge className={agentStatus.system_health.status === 'healthy' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}>
+                    {agentStatus.system_health.status}
+                  </Badge>
+                </div>
+                
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-gray-600">AI Interactions</span>
+                  <span className="font-medium">{agentStatus.system_health.ai_interactions}</span>
+                </div>
+                
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-gray-600">Active Leads</span>
+                  <span className="font-medium">{agentStatus.risk_analysis.total_active_leads}</span>
+                </div>
+                
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-gray-600">High Risk Leads</span>
+                  <span className="font-medium text-red-600">{agentStatus.risk_analysis.high_risk_count}</span>
+                </div>
+                
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-gray-600">Total Events</span>
+                  <span className="font-medium">{agentStatus.system_health.total_events}</span>
+                </div>
+                
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-gray-600">Error Events</span>
+                  <span className="font-medium text-red-600">{agentStatus.system_health.error_events}</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   );
 } 

@@ -4,7 +4,7 @@ Handles both Instant Reply Agent and Proactive Outreach Agent workflows
 Enhanced with AI-powered decision making for lead outreach
 """
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Dict, Any, List, Optional, TypedDict
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, func
@@ -436,8 +436,12 @@ class EngagementEngine:
         Returns:
             Dictionary containing qualification and strategy details
         """
-        # Get lead context
-        days_cold = (datetime.utcnow() - lead.last_contact_at).days if lead.last_contact_at else 999
+        # Get lead context (timezone-aware)
+        days_cold = (
+            (datetime.now(timezone.utc) - lead.last_contact_at).days
+            if lead.last_contact_at
+            else 999
+        )
         service_keywords = extract_service_keywords(lead.initial_inquiry or "")
         
         # Get available offers and testimonials
@@ -485,7 +489,8 @@ AVAILABLE TESTIMONIALS:
 {chr(10).join([f"- {testimonial.service_category}: \"{testimonial.snippet_text}\"" for testimonial in relevant_testimonials]) if relevant_testimonials else "No specific testimonials available"}
 
 ANALYSIS TASK:
-1. Should this lead be contacted? Consider their original interest, time elapsed, and available resources
+1. Should this lead be contacted? Consider their original interest, time elapsed, and available resources.
+   RULE: If Days Since Going Cold is greater than or equal to {settings.cold_lead_cooldown_days}, you must set "should_contact" to true unless there is an explicit do-not-contact flag (not present here).
 2. If yes, what's the best outreach strategy?
 3. What specific offer or testimonial should be featured?
 
@@ -510,6 +515,13 @@ Respond with ONLY valid JSON.
             
             # Parse AI response
             strategy_result = json.loads(response.content.strip())
+            
+            # Fallback: Force contact for sufficiently cold leads
+            if not strategy_result.get("should_contact", False) and days_cold >= settings.cold_lead_cooldown_days:
+                strategy_result["should_contact"] = True
+                strategy_result["reasoning"] = f"Fallback: Lead is {days_cold} days cold (>= {settings.cold_lead_cooldown_days} threshold)"
+                if not strategy_result.get("strategy"):
+                    strategy_result["strategy"] = "gentle_nudge" if days_cold <= 30 else "social_proof" if days_cold <= 45 else "incentive_offer"
             
             return strategy_result
             
@@ -574,7 +586,7 @@ Respond with ONLY valid JSON.
             )
             
             self.db.add(message)
-            lead.last_contact_at = datetime.utcnow()
+            lead.last_contact_at = datetime.now(timezone.utc)
             
             # Log the AI strategy execution
             await self.logger.log_event(
@@ -598,7 +610,11 @@ Respond with ONLY valid JSON.
     def _build_strategy_context(self, lead: Lead, strategy_result: Dict[str, Any]) -> Dict[str, Any]:
         """Build context for strategy execution"""
         
-        days_cold = (datetime.utcnow() - lead.last_contact_at).days if lead.last_contact_at else 999
+        days_cold = (
+            (datetime.now(timezone.utc) - lead.last_contact_at).days
+            if lead.last_contact_at
+            else 999
+        )
         
         context = {
             "original_inquiry": lead.initial_inquiry or "dental services",
@@ -660,7 +676,7 @@ Respond with ONLY valid JSON.
             )
             
             self.db.add(message)
-            lead.last_contact_at = datetime.utcnow()
+            lead.last_contact_at = datetime.now(timezone.utc)
             self.db.commit()
             
             return True

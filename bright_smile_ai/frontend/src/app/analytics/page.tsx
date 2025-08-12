@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { Layout } from '@/components/layout/Layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -9,25 +10,79 @@ import {
   TrendingDown, 
   Users, 
   MessageSquare, 
-  DollarSign,
   Clock,
   Target,
   BarChart3,
-  PieChart,
-  Activity,
   Bot,
-  Eye,
-  Calendar
+  AlertTriangle,
+  Activity
 } from 'lucide-react';
+import { apiService } from '@/lib/api';
+import { DashboardOverview, LeadFunnel, RiskAnalysis, AIPerformance } from '@/types';
+import { toast } from 'sonner';
 
 export default function AnalyticsPage() {
+  const [dashboardData, setDashboardData] = useState<DashboardOverview | null>(null);
+  const [leadFunnel, setLeadFunnel] = useState<LeadFunnel | null>(null);
+  const [riskAnalysis, setRiskAnalysis] = useState<RiskAnalysis | null>(null);
+  const [aiPerformance, setAiPerformance] = useState<AIPerformance | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchAnalyticsData();
+  }, []);
+
+  const fetchAnalyticsData = async () => {
+    try {
+      setLoading(true);
+      const [overview, funnel, risk, ai] = await Promise.all([
+        apiService.getDashboardOverview(),
+        apiService.getLeadFunnel(),
+        apiService.getRiskAnalysis(),
+        apiService.getAIPerformance(),
+      ]);
+      
+      setDashboardData(overview);
+      setLeadFunnel(funnel);
+      setRiskAnalysis(risk);
+      setAiPerformance(ai);
+    } catch (error) {
+      console.error('Failed to fetch analytics data:', error);
+      toast.error('Failed to load analytics data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <Layout>
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
+        </div>
+      </Layout>
+    );
+  }
+
+  if (!dashboardData) {
+    return (
+      <Layout>
+        <div className="text-center py-12">
+          <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-gray-900 mb-2">No Data Available</h3>
+          <p className="text-gray-600">Unable to load analytics data at this time.</p>
+        </div>
+      </Layout>
+    );
+  }
+
   return (
     <Layout>
       <div className="space-y-6">
         <div className="border-b border-gray-200 pb-5">
           <h1 className="text-3xl font-bold text-gray-900">Analytics</h1>
           <p className="mt-2 text-sm text-gray-600">
-            Comprehensive insights into AI performance, lead conversion, and business metrics
+            Real-time insights into AI performance, lead conversion, and business metrics
           </p>
         </div>
 
@@ -35,15 +90,15 @@ export default function AnalyticsPage() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Total Revenue</CardTitle>
-              <DollarSign className="h-4 w-4 text-green-600" />
+              <CardTitle className="text-sm font-medium text-gray-600">Total Leads</CardTitle>
+              <Users className="h-4 w-4 text-blue-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-gray-900">$45,250</div>
+              <div className="text-2xl font-bold text-gray-900">{dashboardData.lead_metrics.total_leads}</div>
               <div className="flex items-center space-x-2 mt-2">
                 <TrendingUp className="h-4 w-4 text-green-600" />
-                <span className="text-sm text-green-600">+23.5%</span>
-                <span className="text-xs text-gray-500">vs last month</span>
+                <span className="text-sm text-green-600">+{dashboardData.lead_metrics.new_leads_period}</span>
+                <span className="text-xs text-gray-500">new this period</span>
               </div>
             </CardContent>
           </Card>
@@ -54,311 +109,270 @@ export default function AnalyticsPage() {
               <Target className="h-4 w-4 text-blue-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-gray-900">18.7%</div>
+              <div className="text-2xl font-bold text-gray-900">{dashboardData.lead_metrics.conversion_rate}%</div>
               <div className="flex items-center space-x-2 mt-2">
-                <TrendingUp className="h-4 w-4 text-green-600" />
-                <span className="text-sm text-green-600">+5.2%</span>
-                <span className="text-xs text-gray-500">vs last month</span>
+                <span className="text-sm text-gray-600">{dashboardData.lead_metrics.converted_leads} converted</span>
               </div>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">AI Response Time</CardTitle>
-              <Clock className="h-4 w-4 text-purple-600" />
+              <CardTitle className="text-sm font-medium text-gray-600">AI Response Rate</CardTitle>
+              <Bot className="h-4 w-4 text-purple-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-gray-900">45s</div>
+              <div className="text-2xl font-bold text-gray-900">{dashboardData.engagement_metrics.response_rate}%</div>
               <div className="flex items-center space-x-2 mt-2">
-                <TrendingDown className="h-4 w-4 text-green-600" />
-                <span className="text-sm text-green-600">-12.3%</span>
-                <span className="text-xs text-gray-500">vs last month</span>
+                <span className="text-sm text-gray-600">{dashboardData.engagement_metrics.ai_responses_period} responses</span>
               </div>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Lead Engagement</CardTitle>
-              <Users className="h-4 w-4 text-orange-600" />
+              <CardTitle className="text-sm font-medium text-gray-600">Active Leads</CardTitle>
+              <Activity className="h-4 w-4 text-orange-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-gray-900">78.9%</div>
+              <div className="text-2xl font-bold text-gray-900">{dashboardData.lead_metrics.active_leads}</div>
               <div className="flex items-center space-x-2 mt-2">
-                <TrendingUp className="h-4 w-4 text-green-600" />
-                <span className="text-sm text-green-600">+8.7%</span>
-                <span className="text-xs text-gray-500">vs last month</span>
+                <span className="text-sm text-gray-600">currently engaged</span>
               </div>
             </CardContent>
           </Card>
         </div>
 
-        {/* AI Performance Metrics */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Bot className="h-5 w-5" />
-              AI Performance Metrics
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              <div className="space-y-6">
-                <h4 className="font-medium text-gray-900">Response Quality</h4>
-                <div className="space-y-4">
-                  <div>
-                    <div className="flex justify-between text-sm mb-2">
-                      <span>Accuracy Rate</span>
-                      <span className="font-medium">94.2%</span>
-                    </div>
-                    <Progress value={94.2} className="h-2" />
-                  </div>
-                  
-                  <div>
-                    <div className="flex justify-between text-sm mb-2">
-                      <span>Patient Satisfaction</span>
-                      <span className="font-medium">87.5%</span>
-                    </div>
-                    <Progress value={87.5} className="h-2" />
-                  </div>
-                  
-                  <div>
-                    <div className="flex justify-between text-sm mb-2">
-                      <span>Intent Recognition</span>
-                      <span className="font-medium">91.8%</span>
-                    </div>
-                    <Progress value={91.8} className="h-2" />
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-6">
-                <h4 className="font-medium text-gray-900">Efficiency Metrics</h4>
-                <div className="space-y-4">
-                  <div>
-                    <div className="flex justify-between text-sm mb-2">
-                      <span>Response Time</span>
-                      <span className="font-medium">45 seconds</span>
-                    </div>
-                    <Progress value={75} className="h-2" />
-                  </div>
-                  
-                  <div>
-                    <div className="flex justify-between text-sm mb-2">
-                      <span>Uptime</span>
-                      <span className="font-medium">99.8%</span>
-                    </div>
-                    <Progress value={99.8} className="h-2" />
-                  </div>
-                  
-                  <div>
-                    <div className="flex justify-between text-sm mb-2">
-                      <span>Error Rate</span>
-                      <span className="font-medium">0.2%</span>
-                    </div>
-                    <Progress value={98} className="h-2" />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Lead Conversion Funnel */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <BarChart3 className="h-5 w-5" />
-              Lead Conversion Funnel
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-6">
-              {[
-                { stage: 'New Leads', count: 156, conversion: 100, color: 'bg-blue-500' },
-                { stage: 'Initial Contact', count: 142, conversion: 91, color: 'bg-green-500' },
-                { stage: 'Engaged', count: 98, conversion: 63, color: 'bg-yellow-500' },
-                { stage: 'Qualified', count: 67, conversion: 43, color: 'bg-orange-500' },
-                { stage: 'Proposal', count: 45, conversion: 29, color: 'bg-red-500' },
-                { stage: 'Converted', count: 29, conversion: 18.7, color: 'bg-emerald-500' },
-              ].map((funnelStage, index) => (
-                <div key={funnelStage.stage} className="flex items-center space-x-4">
-                  <div className="flex items-center space-x-3 w-32">
-                    <div className={`w-3 h-3 rounded-full ${funnelStage.color}`}></div>
-                    <span className="text-sm font-medium text-gray-700">{funnelStage.stage}</span>
-                  </div>
-                  
-                  <div className="flex-1">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm text-gray-600">{funnelStage.count} leads</span>
-                      <span className="text-sm text-gray-500">{funnelStage.conversion}%</span>
-                    </div>
-                    <Progress value={funnelStage.conversion} className="h-2" />
-                  </div>
-                  
-                  <div className="w-20 text-right">
-                    <Badge variant="outline" className="text-xs">
-                      {funnelStage.count}
-                    </Badge>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Revenue Analysis */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Lead Status Distribution */}
+        {dashboardData.lead_metrics.status_distribution && (
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">Revenue by Service</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                <BarChart3 className="h-5 w-5" />
+                Lead Status Distribution
+              </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                {[
-                  { service: 'Invisalign', revenue: 18500, percentage: 40.9, color: 'bg-blue-500' },
-                  { service: 'Dental Implants', revenue: 12400, percentage: 27.4, color: 'bg-green-500' },
-                  { service: 'General Dentistry', revenue: 8900, percentage: 19.7, color: 'bg-yellow-500' },
-                  { service: 'Cosmetic Procedures', revenue: 5450, percentage: 12.0, color: 'bg-purple-500' },
-                ].map((service) => (
-                  <div key={service.service} className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <div className={`w-3 h-3 rounded-full ${service.color}`}></div>
-                      <span className="text-sm font-medium text-gray-900">{service.service}</span>
-                    </div>
-                    <div className="text-right">
-                      <div className="font-medium text-gray-900">{formatCurrency(service.revenue)}</div>
-                      <div className="text-xs text-gray-500">{service.percentage}%</div>
-                    </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {Object.entries(dashboardData.lead_metrics.status_distribution).map(([status, count]) => (
+                  <div key={status} className="text-center p-4 bg-gray-50 rounded-lg">
+                    <div className="text-2xl font-bold text-gray-900">{count}</div>
+                    <div className="text-sm text-gray-600 capitalize">{status.replace('_', ' ')}</div>
                   </div>
                 ))}
               </div>
             </CardContent>
           </Card>
+        )}
 
+        {/* Lead Funnel */}
+        {leadFunnel && (
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">Monthly Trends</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                <BarChart3 className="h-5 w-5" />
+                Lead Conversion Funnel
+              </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                {[
-                  { month: 'Jan', revenue: 12500, leads: 45, trend: 'up' },
-                  { month: 'Feb', revenue: 15800, leads: 52, trend: 'up' },
-                  { month: 'Mar', revenue: 14200, leads: 48, trend: 'down' },
-                  { month: 'Apr', revenue: 18900, leads: 61, trend: 'up' },
-                  { month: 'May', revenue: 22100, leads: 67, trend: 'up' },
-                  { month: 'Jun', revenue: 45250, leads: 156, trend: 'up' },
-                ].map((month) => (
-                  <div key={month.month} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
-                    <span className="font-medium text-gray-900">{month.month}</span>
-                    <div className="text-right">
-                      <div className="font-medium text-gray-900">{formatCurrency(month.revenue)}</div>
-                      <div className="text-xs text-gray-500">{month.leads} leads</div>
+              <div className="space-y-6">
+                {Object.entries(leadFunnel.funnel_counts).map(([stage, count]) => {
+                  const rate = leadFunnel.funnel_rates[stage as keyof typeof leadFunnel.funnel_rates] || 0;
+                  return (
+                    <div key={stage} className="flex items-center space-x-4">
+                      <div className="flex items-center space-x-3 w-32">
+                        <div className={`w-3 h-3 rounded-full ${
+                          stage === 'converted' ? 'bg-emerald-500' :
+                          stage === 'active' ? 'bg-green-500' :
+                          stage === 'at_risk' ? 'bg-yellow-500' :
+                          stage === 'cold' ? 'bg-red-500' : 'bg-gray-500'
+                        }`}></div>
+                        <span className="text-sm font-medium text-gray-700 capitalize">{stage.replace('_', ' ')}</span>
+                      </div>
+                      
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-sm text-gray-600">{count} leads</span>
+                          <span className="text-sm text-gray-500">{rate}%</span>
+                        </div>
+                        <Progress value={rate} className="h-2" />
+                      </div>
+                      
+                      <div className="w-20 text-right">
+                        <Badge variant="outline" className="text-xs">
+                          {count}
+                        </Badge>
+                      </div>
                     </div>
-                    <div className={`w-2 h-2 rounded-full ${
-                      month.trend === 'up' ? 'bg-green-500' : 'bg-red-500'
-                    }`}></div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </CardContent>
           </Card>
-        </div>
+        )}
 
-        {/* AI Agent Performance */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Bot className="h-5 w-5" />
-              AI Agent Performance Comparison
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="text-center p-4 bg-blue-50 rounded-lg">
-                <h4 className="font-medium text-blue-900 mb-2">Proactive Outreach Agent</h4>
-                <div className="text-2xl font-bold text-blue-600 mb-1">23.5%</div>
-                <div className="text-sm text-blue-700">Conversion Rate</div>
-                <div className="text-xs text-blue-600 mt-1">45 leads contacted</div>
-              </div>
-              
-              <div className="text-center p-4 bg-green-50 rounded-lg">
-                <h4 className="font-medium text-green-900 mb-2">Instant Reply Agent</h4>
-                <div className="text-2xl font-bold text-green-600 mb-1">94.2%</div>
-                <div className="text-sm text-green-700">Response Accuracy</div>
-                <div className="text-xs text-green-600 mt-1">1,247 messages</div>
-              </div>
-              
-              <div className="text-center p-4 bg-purple-50 rounded-lg">
-                <h4 className="font-medium text-purple-900 mb-2">Risk Analyzer</h4>
-                <div className="text-2xl font-bold text-purple-600 mb-1">78.9%</div>
-                <div className="text-sm text-purple-700">Intervention Success</div>
-                <div className="text-xs text-purple-600 mt-1">23 leads analyzed</div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Financial Explainer Performance */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Eye className="h-5 w-5" />
-              Financial Explainer Performance
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-4">
-                <h4 className="font-medium text-gray-900">Generation Metrics</h4>
-                <div className="space-y-3">
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Total Generated</span>
-                    <span className="font-medium">67</span>
+        {/* Risk Analysis */}
+        {riskAnalysis && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5" />
+                Risk Analysis Overview
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="text-center p-4 bg-red-50 rounded-lg">
+                  <div className="text-2xl font-bold text-red-600">
+                    {riskAnalysis.high_risk_leads.length}
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Access Rate</span>
-                    <span className="font-medium">67.3%</span>
+                  <div className="text-sm text-red-800">High Risk Leads</div>
+                </div>
+                
+                <div className="text-center p-4 bg-yellow-50 rounded-lg">
+                  <div className="text-2xl font-bold text-yellow-600">
+                    {riskAnalysis.medium_risk_leads.length}
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Conversion Impact</span>
-                    <span className="font-medium">+34.2%</span>
+                  <div className="text-sm text-yellow-800">Medium Risk Leads</div>
+                </div>
+                
+                <div className="text-center p-4 bg-green-50 rounded-lg">
+                  <div className="text-2xl font-bold text-green-600">
+                    {riskAnalysis.low_risk_leads.length}
                   </div>
+                  <div className="text-sm text-green-800">Low Risk Leads</div>
                 </div>
               </div>
               
-              <div className="space-y-4">
-                <h4 className="font-medium text-gray-900">Popular Procedures</h4>
-                <div className="space-y-3">
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Invisalign</span>
-                    <span className="font-medium">23 explainers</span>
+              {riskAnalysis.high_risk_leads.length > 0 && (
+                <div className="mt-6">
+                  <h4 className="font-medium text-gray-900 mb-3">High Risk Leads Requiring Attention</h4>
+                  <div className="space-y-2">
+                    {riskAnalysis.high_risk_leads.slice(0, 5).map((lead) => (
+                      <div key={lead.id} className="flex items-center justify-between p-3 bg-red-50 rounded-lg">
+                        <div>
+                          <div className="font-medium text-red-900">{lead.name}</div>
+                          <div className="text-sm text-red-700">{lead.initial_inquiry}</div>
+                        </div>
+                        <Badge className="bg-red-100 text-red-800">
+                          {lead.risk_level}
+                        </Badge>
+                      </div>
+                    ))}
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Dental Implants</span>
-                    <span className="font-medium">18 explainers</span>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* AI Performance */}
+        {aiPerformance && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Bot className="h-5 w-5" />
+                AI Performance Metrics
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="space-y-6">
+                  <h4 className="font-medium text-gray-900">Response Quality</h4>
+                  <div className="space-y-4">
+                    <div>
+                      <div className="flex justify-between text-sm mb-2">
+                        <span>Total Conversations</span>
+                        <span className="font-medium">{aiPerformance.total_conversations}</span>
+                      </div>
+                      <Progress value={100} className="h-2" />
+                    </div>
+                    
+                    <div>
+                      <div className="flex justify-between text-sm mb-2">
+                        <span>Successful Handoffs</span>
+                        <span className="font-medium">{aiPerformance.successful_handoffs}</span>
+                      </div>
+                      <Progress value={(aiPerformance.successful_handoffs / aiPerformance.total_conversations) * 100} className="h-2" />
+                    </div>
+                    
+                    <div>
+                      <div className="flex justify-between text-sm mb-2">
+                        <span>Total Offers Made</span>
+                        <span className="font-medium">{aiPerformance.total_offers_made}</span>
+                      </div>
+                      <Progress value={(aiPerformance.total_offers_made / aiPerformance.total_conversations) * 100} className="h-2" />
+                    </div>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Root Canal</span>
-                    <span className="font-medium">15 explainers</span>
+                </div>
+
+                <div className="space-y-6">
+                  <h4 className="font-medium text-gray-900">Sentiment Analysis</h4>
+                  <div className="space-y-4">
+                    <div>
+                      <div className="flex justify-between text-sm mb-2">
+                        <span>Average Sentiment Improvement</span>
+                        <span className="font-medium">{aiPerformance.average_sentiment_improvement.toFixed(2)}</span>
+                      </div>
+                      <Progress value={Math.max(0, (aiPerformance.average_sentiment_improvement + 1) * 50)} className="h-2" />
+                    </div>
+                    
+                    <div className="text-center p-4 bg-blue-50 rounded-lg">
+                      <div className="text-2xl font-bold text-blue-600">
+                        {aiPerformance.total_conversations}
+                      </div>
+                      <div className="text-sm text-blue-800">Total AI Interactions</div>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* System Health */}
+        {dashboardData.system_health && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Activity className="h-5 w-5" />
+                System Health
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="text-center p-4 bg-gray-50 rounded-lg">
+                  <div className="text-2xl font-bold text-gray-900">
+                    {dashboardData.system_health.status}
+                  </div>
+                  <div className="text-sm text-gray-600">Status</div>
+                </div>
+                
+                <div className="text-center p-4 bg-blue-50 rounded-lg">
+                  <div className="text-2xl font-bold text-blue-600">
+                    {dashboardData.system_health.total_events}
+                  </div>
+                  <div className="text-sm text-blue-800">Total Events</div>
+                </div>
+                
+                <div className="text-center p-4 bg-green-50 rounded-lg">
+                  <div className="text-2xl font-bold text-green-600">
+                    {dashboardData.system_health.ai_interactions}
+                  </div>
+                  <div className="text-sm text-green-800">AI Interactions</div>
+                </div>
+                
+                <div className="text-center p-4 bg-red-50 rounded-lg">
+                  <div className="text-2xl font-bold text-red-600">
+                    {dashboardData.system_health.error_rate_percent}%
+                  </div>
+                  <div className="text-sm text-red-800">Error Rate</div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </Layout>
   );
-}
-
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(amount);
 } 
