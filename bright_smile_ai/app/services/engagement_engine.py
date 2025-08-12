@@ -486,7 +486,7 @@ AVAILABLE OFFERS:
 {chr(10).join([f"- {offer.offer_title}: {offer.description}" for offer in relevant_offers]) if relevant_offers else "No specific offers available"}
 
 AVAILABLE TESTIMONIALS:
-{chr(10).join([f"- {testimonial.service_category}: \"{testimonial.snippet_text}\"" for testimonial in relevant_testimonials]) if relevant_testimonials else "No specific testimonials available"}
+{chr(10).join([f"- {testimonial.service_category}: {testimonial.snippet_text} " for testimonial in relevant_testimonials]) if relevant_testimonials else "No specific testimonials available"}
 
 ANALYSIS TASK:
 1. Should this lead be contacted? Consider their original interest, time elapsed, and available resources.
