@@ -1,13 +1,14 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   Search, 
@@ -25,7 +26,6 @@ import {
 } from 'lucide-react';
 import { apiService } from '@/lib/api';
 import { Lead, Message } from '@/types';
-import { toast } from 'sonner';
 import { formatDate, formatCurrency } from '@/lib/utils';
 
 interface LeadManagementProps {
@@ -41,6 +41,16 @@ export function LeadManagement({ onLeadSelect }: LeadManagementProps) {
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [conversation, setConversation] = useState<Message[]>([]);
   const [showLeadDetails, setShowLeadDetails] = useState(false);
+  
+  // Add Lead Dialog State
+  const [showAddDialog, setShowAddDialog] = useState(false);
+  const [newLeadForm, setNewLeadForm] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    initial_inquiry: ''
+  });
+  const [addingLead, setAddingLead] = useState(false);
 
   useEffect(() => {
     fetchLeads();
@@ -71,50 +81,41 @@ export function LeadManagement({ onLeadSelect }: LeadManagementProps) {
     } catch (error) {
       console.error('Failed to fetch leads:', error);
       toast.error('Failed to load leads');
-      // Use mock data for demo
-      setLeads([
-        {
-          id: 1,
-          name: 'John Smith',
-          email: 'john.smith@email.com',
-          phone: '(555) 123-4567',
-          initial_inquiry: 'I need Invisalign treatment',
-          status: 'active',
-          risk_level: 'low',
-          sentiment_score: 0.8,
-          do_not_contact: false,
-          created_at: '2024-01-15T10:00:00Z',
-          last_contact_at: '2024-01-20T14:30:00Z',
-        },
-        {
-          id: 2,
-          name: 'Sarah Johnson',
-          email: 'sarah.j@email.com',
-          phone: '(555) 987-6543',
-          initial_inquiry: 'Dental implant consultation',
-          status: 'at_risk',
-          risk_level: 'medium',
-          sentiment_score: 0.3,
-          do_not_contact: false,
-          created_at: '2024-01-10T09:00:00Z',
-          last_contact_at: '2024-01-18T11:00:00Z',
-        },
-        {
-          id: 3,
-          name: 'Mike Davis',
-          email: 'mike.davis@email.com',
-          phone: '(555) 456-7890',
-          initial_inquiry: 'General cleaning and checkup',
-          status: 'cold',
-          risk_level: 'high',
-          sentiment_score: -0.2,
-          do_not_contact: false,
-          created_at: '2024-01-05T08:00:00Z',
-          last_contact_at: '2024-01-12T16:00:00Z',
-        },
-      ]);
+      // Set empty array instead of mock data
+      setLeads([]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const addLead = async () => {
+    if (!newLeadForm.name || !newLeadForm.email) {
+      toast.error('Name and email are required');
+      return;
+    }
+
+    try {
+      setAddingLead(true);
+      const leadData = {
+        name: newLeadForm.name,
+        email: newLeadForm.email,
+        phone: newLeadForm.phone,
+        initial_inquiry: newLeadForm.initial_inquiry,
+        status: 'new' as const,
+        risk_level: 'low' as const,
+        sentiment_score: 0,
+        do_not_contact: false
+      };
+      const newLead = await apiService.createLead(leadData);
+      setLeads(prev => [...prev, newLead]);
+      setNewLeadForm({ name: '', email: '', phone: '', initial_inquiry: '' });
+      setShowAddDialog(false);
+      toast.success('Lead added successfully!');
+    } catch (error) {
+      console.error('Failed to add lead:', error);
+      toast.error('Failed to add lead');
+    } finally {
+      setAddingLead(false);
     }
   };
 
@@ -274,7 +275,10 @@ export function LeadManagement({ onLeadSelect }: LeadManagementProps) {
                 <SelectItem value="do_not_contact">Do Not Contact</SelectItem>
               </SelectContent>
             </Select>
-            <Button className="w-full sm:w-auto">
+            <Button 
+              className="w-full sm:w-auto"
+              onClick={() => setShowAddDialog(true)}
+            >
               <Plus className="h-4 w-4 mr-2" />
               Add Lead
             </Button>
@@ -605,6 +609,74 @@ export function LeadManagement({ onLeadSelect }: LeadManagementProps) {
               </TabsContent>
             </Tabs>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Lead Dialog */}
+      <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add New Lead</DialogTitle>
+            <DialogDescription>
+              Add a new patient lead to the system.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium mb-1">
+                Name <span className="text-red-500">*</span>
+              </label>
+              <Input
+                value={newLeadForm.name}
+                onChange={(e) => setNewLeadForm(prev => ({ ...prev, name: e.target.value }))}
+                placeholder="Enter full name"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">
+                Email <span className="text-red-500">*</span>
+              </label>
+              <Input
+                type="email"
+                value={newLeadForm.email}
+                onChange={(e) => setNewLeadForm(prev => ({ ...prev, email: e.target.value }))}
+                placeholder="Enter email address"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Phone</label>
+              <Input
+                value={newLeadForm.phone}
+                onChange={(e) => setNewLeadForm(prev => ({ ...prev, phone: e.target.value }))}
+                placeholder="Enter phone number"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Initial Inquiry</label>
+              <textarea
+                className="w-full p-2 border border-gray-300 rounded-md resize-none"
+                rows={3}
+                value={newLeadForm.initial_inquiry}
+                onChange={(e) => setNewLeadForm(prev => ({ ...prev, initial_inquiry: e.target.value }))}
+                placeholder="Enter initial inquiry or notes"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowAddDialog(false)}
+              disabled={addingLead}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={addLead}
+              disabled={addingLead}
+            >
+              {addingLead ? 'Adding...' : 'Add Lead'}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

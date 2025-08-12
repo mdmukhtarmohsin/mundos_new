@@ -4,6 +4,7 @@ Leads API endpoints
 from datetime import datetime
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.db.base import get_db
@@ -16,6 +17,11 @@ from app.schemas.message import MessageRead
 from app.services.system_logger import SystemLogger
 
 router = APIRouter()
+
+# Request models
+class SimulateMessageRequest(BaseModel):
+    message: str
+    sender_type: Optional[SenderType] = SenderType.LEAD
 
 
 @router.post("/", response_model=LeadRead)
@@ -233,8 +239,7 @@ def get_lead_conversation(
 @router.post("/{lead_id}/simulate-message")
 async def simulate_lead_message(
     lead_id: int,
-    message_content: str,
-    sender_type: SenderType = SenderType.LEAD,
+    request: SimulateMessageRequest,
     db: Session = Depends(get_db)
 ):
     """
@@ -249,8 +254,8 @@ async def simulate_lead_message(
     # Create the message
     message = Message(
         lead_id=lead_id,
-        sender=sender_type,
-        content=message_content
+        sender=request.sender_type,
+        content=request.message
     )
     
     db.add(message)
@@ -259,12 +264,12 @@ async def simulate_lead_message(
     
     # If this is from the lead, trigger AI response (if not from human)
     ai_response = None
-    if sender_type == SenderType.LEAD:
+    if request.sender_type == SenderType.LEAD:
         try:
             from app.services.engagement_engine import EngagementEngine
             engine = EngagementEngine(db)
             
-            result = await engine.invoke_new_message(lead_id, message_content)
+            result = await engine.invoke_new_message(lead_id, request.message)
             
             if result.get("success"):
                 ai_response = {

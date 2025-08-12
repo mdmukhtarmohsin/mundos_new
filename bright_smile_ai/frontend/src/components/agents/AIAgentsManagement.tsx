@@ -67,46 +67,22 @@ export function AIAgentsManagement() {
       ]);
       setAgentStatus(status);
       setPerformanceMetrics(metrics);
-      setCampaignHistory(history);
+      // Ensure history is always an array
+      setCampaignHistory(Array.isArray(history) ? history : []);
     } catch (error) {
       console.error('Failed to fetch agent data:', error);
-      // Use mock data for demo
+      // Set empty/default values instead of mock data
       setAgentStatus({
-        status: 'active',
-        last_run: new Date().toISOString(),
+        status: 'inactive',
+        last_run: '',
       });
       setPerformanceMetrics({
-        outreach_conversion_rate: 23.5,
-        ai_response_accuracy: 94.2,
-        lead_engagement_rate: 78.9,
-        time_to_conversion: 4.2,
+        outreach_conversion_rate: 0,
+        ai_response_accuracy: 0,
+        lead_engagement_rate: 0,
+        time_to_conversion: 0,
       });
-      setCampaignHistory([
-        {
-          id: 1,
-          campaign_type: 'Cold Lead Outreach',
-          leads_contacted: 45,
-          responses_received: 12,
-          conversions: 3,
-          created_at: '2024-01-20T10:00:00Z',
-        },
-        {
-          id: 2,
-          campaign_type: 'At-Risk Intervention',
-          leads_contacted: 23,
-          responses_received: 18,
-          conversions: 7,
-          created_at: '2024-01-19T14:30:00Z',
-        },
-        {
-          id: 3,
-          campaign_type: 'Follow-up Campaign',
-          leads_contacted: 67,
-          responses_received: 34,
-          conversions: 12,
-          created_at: '2024-01-18T09:15:00Z',
-        },
-      ]);
+      setCampaignHistory([]);
     }
   };
 
@@ -354,19 +330,20 @@ export function AIAgentsManagement() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {campaignHistory.map((campaign) => (
-                  <div key={campaign.id} className="border rounded-lg p-4">
-                    <div className="flex items-center justify-between mb-3">
-                      <div>
-                        <h4 className="font-medium text-gray-900">{campaign.campaign_type}</h4>
-                        <p className="text-sm text-gray-500">
-                          {formatDate(campaign.created_at)}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-2xl font-bold text-blue-600">
-                          {campaign.conversions}
+                {Array.isArray(campaignHistory) && campaignHistory.length > 0 ? (
+                  campaignHistory.map((campaign) => (
+                    <div key={campaign.id} className="border rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <div>
+                          <h4 className="font-medium text-gray-900">{campaign.campaign_type}</h4>
+                          <p className="text-sm text-gray-500">
+                            {formatDate(campaign.created_at)}
+                          </p>
                         </div>
+                        <div className="text-right">
+                          <div className="text-2xl font-bold text-blue-600">
+                            {campaign.conversions}
+                          </div>
                         <div className="text-sm text-gray-500">Conversions</div>
                       </div>
                     </div>
@@ -392,7 +369,13 @@ export function AIAgentsManagement() {
                       </div>
                     </div>
                   </div>
-                ))}
+                ))
+                ) : (
+                  <div className="text-center py-8 text-gray-500">
+                    <MessageSquare className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p>No campaign history available</p>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -461,17 +444,32 @@ export function AIAgentsManagement() {
                 <div className="space-y-4">
                   <h4 className="font-medium text-gray-900">Agent Operations</h4>
                   <div className="space-y-3">
-                    <Button variant="outline" className="w-full justify-start">
+                    <Button 
+                      variant="outline" 
+                      className="w-full justify-start"
+                      onClick={triggerOutreach}
+                      disabled={outreachRunning}
+                    >
                       <Play className="h-4 w-4 mr-2" />
-                      Start All Agents
+                      {outreachRunning ? 'Running Outreach...' : 'Trigger Outreach'}
                     </Button>
-                    <Button variant="outline" className="w-full justify-start">
-                      <Pause className="h-4 w-4 mr-2" />
-                      Pause All Agents
+                    <Button 
+                      variant="outline" 
+                      className="w-full justify-start"
+                      onClick={analyzeRisk}
+                      disabled={riskAnalysisRunning}
+                    >
+                      <Target className="h-4 w-4 mr-2" />
+                      {riskAnalysisRunning ? 'Analyzing Risk...' : 'Analyze Risk'}
                     </Button>
-                    <Button variant="outline" className="w-full justify-start">
+                    <Button 
+                      variant="outline" 
+                      className="w-full justify-start"
+                      onClick={fetchAgentData}
+                      disabled={loading}
+                    >
                       <RefreshCw className="h-4 w-4 mr-2" />
-                      Restart Agents
+                      Refresh Status
                     </Button>
                   </div>
                 </div>

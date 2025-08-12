@@ -66,48 +66,14 @@ export function FinancialExplainers() {
         apiService.getFinancialExplainerStats(),
       ]);
       
-      // For demo purposes, create mock data
-      setFinancialExplainers([
-        {
-          id: 1,
-          lead_id: 1,
-          secure_url_token: 'abc123def456',
-          is_accessed: true,
-          procedure_name: 'Invisalign Treatment',
-          total_cost: 3500,
-          estimated_insurance: 1400,
-          payment_options: { '12 months': 175, '24 months': 87.5 },
-          created_at: '2024-01-20T10:00:00Z',
-        },
-        {
-          id: 2,
-          lead_id: 2,
-          secure_url_token: 'xyz789uvw012',
-          is_accessed: false,
-          procedure_name: 'Dental Implant',
-          total_cost: 4500,
-          estimated_insurance: 1800,
-          payment_options: { '12 months': 225, '24 months': 112.5 },
-          created_at: '2024-01-19T14:30:00Z',
-        },
-        {
-          id: 3,
-          lead_id: 3,
-          secure_url_token: 'mno345pqr678',
-          is_accessed: true,
-          procedure_name: 'Root Canal',
-          total_cost: 1200,
-          estimated_insurance: 600,
-          payment_options: { '12 months': 50, '24 months': 25 },
-          created_at: '2024-01-18T09:15:00Z',
-        },
-      ]);
+      // Set explainers from actual API response
+      setFinancialExplainers(Array.isArray(explainers) ? explainers : []);
       
       setLeads(leadsData);
-      setStats({
-        total_generated: 3,
-        accessed_count: 2,
-        conversion_rate: 66.7,
+      setStats(statsData || {
+        total_generated: 0,
+        accessed_count: 0,
+        conversion_rate: 0,
       });
     } catch (error) {
       console.error('Failed to fetch data:', error);
